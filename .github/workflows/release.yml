@@ -105,3 +105,22 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "Tesseract Crypt $GITHUB_REF_NAME" \
             --generate-notes
+
+
+  winget:
+    name: Publish to Winget
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Publish to Windows Package Manager
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Adyoi.TesseractCrypt
+          version: ${{ github.ref_name }}
+          release-tag: ${{ github.ref_name }}
+          installers-regex: 'tesseract-crypt-.*-win64\.zip$'
+          token: ${{ secrets.GITHUB_TOKEN }}

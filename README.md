@@ -4,6 +4,7 @@
 [![Pages](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml)
 [![Release](https://img.shields.io/github/v/release/adyoi/tesseract-crypt)](https://github.com/adyoi/tesseract-crypt/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6ee7ff.svg)](LICENSE)
+[![Codecov](https://codecov.io/gh/adyoi/tesseract-crypt/branch/main/graph/badge.svg)](https://codecov.io/gh/adyoi/tesseract-crypt)
 
 **Encrypt strings & files with public/private keys — modern hybrid, streaming, signed.**
 
@@ -25,6 +26,16 @@ passphrase mode.
 | **Multi-recipient (v2)** | One message for many recipients: a random data key wrapped per recipient (format v2) |
 | **Rekey / key rotation** | `tesseract-crypt rekey` to rewrap an existing message for new recipients/sender without touching the ciphertext payload | 
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
+
+### Windows Package Manager (winget)
+
+```powershell
+winget install Adyoi.TesseractCrypt
+```
+
+To upgrade: `winget upgrade Adyoi.TesseractCrypt`
+
+To uninstall: `winget uninstall Adyoi.TesseractCrypt`
 
 ## Install (APT — Debian/Ubuntu amd64)
 
