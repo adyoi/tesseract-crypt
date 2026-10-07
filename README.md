@@ -7,6 +7,9 @@
 
 **Enkripsi string & file dengan public/private key — hibrida modern, streaming, bertanda tangan.**
 
+> **English:** [README.en.md](README.en.md) — full documentation (EN) at the
+> site root: [https://adyoi.github.io/tesseract-crypt/](https://adyoi.github.io/tesseract-crypt/)
+
 `libtesseract_crypt` (C11) + `tesseract-crypt` (CLI, C++17, alias pendek: `tscrypt`)
 dibangun di atas
 [libsodium](https://doc.libsodium.org/): X25519 *hybrid* encryption, Ed25519
@@ -94,10 +97,14 @@ Wrapper C++17 header-only tersedia di `<tesseract/tesseract.hpp>` (`tess::key`,
 
 ## Dokumentasi
 
-- [Landing page](https://adyoi.github.io/tesseract-crypt/) — gambaran & quick start
-- [Referensi CLI](https://adyoi.github.io/tesseract-crypt/cli.html)
-- [Spesifikasi format](https://adyoi.github.io/tesseract-crypt/format.html)
-- [Tentang & perbandingan](https://adyoi.github.io/tesseract-crypt/tentang.html)
+Versi Indonesia:
+
+- [Landing page](https://adyoi.github.io/tesseract-crypt/id/) — gambaran & quick start
+- [Referensi CLI](https://adyoi.github.io/tesseract-crypt/id/cli.html)
+- [Spesifikasi format](https://adyoi.github.io/tesseract-crypt/id/format.html)
+- [Tentang & perbandingan](https://adyoi.github.io/tesseract-crypt/id/tentang.html)
+
+Versi Inggris (utama): [https://adyoi.github.io/tesseract-crypt/](https://adyoi.github.io/tesseract-crypt/)
 
 ## Keamanan
 

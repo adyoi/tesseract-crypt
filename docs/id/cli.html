@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Referensi CLI — Tesseract Crypt</title>
+<meta name="description" content="Referensi lengkap perintah tesseract-crypt: keygen, pubkey, encrypt, decrypt, sign, verify, inspect, info, version, help.">
+<link rel="stylesheet" href="../style.css">
+<link rel="alternate" hreflang="id" href="cli.html">
+<link rel="alternate" hreflang="en" href="../cli.html">
+<link rel="alternate" hreflang="x-default" href="../cli.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Beranda</a>
+      <a href="cli.html" class="active">Referensi CLI</a>
+      <a href="format.html">Spesifikasi Format</a>
+      <a href="tentang.html">Tentang</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="../cli.html" lang="en" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Referensi <em>command line</em></h1>
+    <p class="lead">
+      Biner resmi bernama <code>tesseract-crypt</code>. Alias pendek
+      <code>tscrypt</code> ikut ter-install di semua platform (Linux, Windows,
+      macOS, BSD) — semua perintah di bawah identik. Di Windows nama file
+      otomatis menjadi <code>tesseract-crypt.exe</code>.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="synopsis">Sinopsis</h2>
+<pre class="code">tesseract-crypt <em>perintah</em> [opsi]</pre>
+    <p>Tanpa argumen, bantuan singkat dicetak dan keluar dengan kode 0.</p>
+  </section>
+
+  <section>
+    <h2 id="commands">Perintah</h2>
+
+    <h3 id="keygen"><span class="mono">keygen</span></h3>
+    <p>Membuat pasangan kunci <code>NAME.key</code> (privat) dan
+    <code>NAME.pub</code> (publik). Gunakan <code>--passphrase</code> untuk
+    menyimpan kunci privat dalam keadaan <em>locked</em> (terenkripsi Argon2id).</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-o NAME</code></td><td>Nama berkas dasar (wajib). Akhiran <code>.key</code> diabaikan jika diketik.</td></tr>
+      <tr><td><code>--passphrase</code></td><td>Lindungi kunci privat dengan kata sandi (Argon2id).</td></tr>
+      <tr><td><code>--kdf-ops N</code></td><td>Iterasi Argon2id (opslimit).</td></tr>
+      <tr><td><code>--kdf-mem MB</code></td><td>Memori Argon2id dalam MiB.</td></tr>
+    </table>
+
+    <h3 id="pubkey"><span class="mono">pubkey</span></h3>
+    <p>Mengekspor kunci publik dari berkas kunci privat.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k KEYFILE</code></td><td>Berkas kunci privat (wajib).</td></tr>
+      <tr><td><code>-o OUT</code></td><td>Berkas output publik (default: <code>stdout</code>).</td></tr>
+    </table>
+
+    <h3 id="encrypt"><span class="mono">encrypt</span></h3>
+    <p>Mengenkripsi berkas atau string. Input/output default: stdin/stdout.
+    Output ke TTY otomatis di-<em>armor</em> menjadi teks aman salin-tempel.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-r RECIPIENT.pub</code></td><td>Kunci publik penerima (mode public-key).</td></tr>
+      <tr><td><code>-k SENDER.key</code></td><td>Kunci privat pengirim untuk tanda tangan (default: anonim).</td></tr>
+      <tr><td><code>-i IN</code></td><td>Berkas input (default: <code>stdin</code>).</td></tr>
+      <tr><td><code>-o OUT</code></td><td>Berkas output (default: <code>stdout</code>).</td></tr>
+      <tr><td><code>--armor</code></td><td>Paksa output teks berlabel <code>BEGIN</code>/<code>END</code>.</td></tr>
+      <tr><td><code>--chunk-size N</code></td><td>Ukuran chunk (4096 … 16777216; default 65536).</td></tr>
+      <tr><td><code>--no-sign</code></td><td>Nonaktifkan tanda tangan pengirim.</td></tr>
+      <tr><td><code>--passphrase</code></td><td>Mode simetris: turunkan kunci dari kata sandi (Argon2id).</td></tr>
+      <tr><td><code>--text "rahasia"</code></td><td>Enkripsi string (tanpa berkas); output ber-armor ke stdout.</td></tr>
+    </table>
+
+    <h3 id="decrypt"><span class="mono">decrypt</span></h3>
+    <p>Mendekripsi pesan. Input ber-armor terdeteksi otomatis. Plaintext
+    diverifikasi (AEAD + tanda tangan bila diminta) sebelum ditulis atomik ke file tujuan.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k RECIPIENT.key</code></td><td>Kunci privat penerima.</td></tr>
+      <tr><td><code>-i IN</code></td><td>Berkas input (default: <code>stdin</code>).</td></tr>
+      <tr><td><code>-o OUT</code></td><td>Berkas output (default: <code>stdout</code>).</td></tr>
+      <tr><td><code>--require-signer SIGNER.pub</code></td><td>Wajibkan tanda tangan dari kunci publik ini (pinning).</td></tr>
+      <tr><td><code>--passphrase</code></td><td>Mode simetris: gunakan kata sandi.</td></tr>
+    </table>
+
+    <div class="warn">
+      <strong>Penting.</strong> Saat <code>--require-signer</code> gagal,
+      berakhir dengan kode keluar <code>3</code> dan <em>tidak ada berkas
+      output</em> yang ditulis (output hanya dipindahkan setelah verifikasi
+      sukses).
+    </div>
+
+    <h3 id="sign"><span class="mono">sign</span></h3>
+    <p>Menandatangani berkas (tanda tangan <em>detached</em>, Ed25519ph
+    streaming). Cocok untuk artefak rilis.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k KEY</code></td><td>Kunci privat penanda tangan (wajib).</td></tr>
+      <tr><td><code>-i FILE</code></td><td>Berkas yang ditandatangani.</td></tr>
+      <tr><td><code>-o FILE.sig</code></td><td>Output tanda tangan (default: <code>stdout</code>).</td></tr>
+    </table>
+
+    <h3 id="verify"><span class="mono">verify</span></h3>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k PUBKEY</code></td><td>Kunci publik penanda tangan (wajib).</td></tr>
+      <tr><td><code>-i FILE</code></td><td>Berkas (wajib).</td></tr>
+      <tr><td><code>-s FILE.sig</code></td><td>Tanda tangan (wajib).</td></tr>
+    </table>
+
+    <h3 id="inspect"><span class="mono">inspect</span></h3>
+    <p>Membaca header pesan tanpa mendekripsi: versi format, suite, mode,
+    ukuran chunk, perkiraan panjang plaintext, dan fingerprint penanda tangan.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-i FILE</code></td><td>Pesan (default: <code>stdin</code>). Ber-armor otomatis dideteksi.</td></tr>
+    </table>
+
+    <h3 id="info"><span class="mono">info</span></h3>
+    <p>Menampilkan tipe kunci (privat/terkunci/publik) dan fingerprint-nya.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k KEYFILE</code></td><td>Berkas kunci (wajib).</td></tr>
+    </table>
+
+    <h3 id="version-help"><span class="mono">version</span> · <span class="mono">help</span></h3>
+    <p><code>version</code> mencetak versi; <code>help</code> mencetak bantuan.
+    Keduanya juga tersedia sebagai <code>--version</code> / <code>-V</code> dan
+    <code>--help</code> / <code>-h</code>.</p>
+  </section>
+
+  <section>
+    <h2 id="exit">Kode keluar</h2>
+    <table>
+      <tr><th>Kode</th><th>Makna</th></tr>
+      <tr><td><code>0</code></td><td>Sukses.</td></tr>
+      <tr><td><code>1</code></td><td>Kesalahan umum (I/O, format, kunci).</td></tr>
+      <tr><td><code>2</code></td><td>Penggunaan salah (argumen tidak valid / tidak lengkap).</td></tr>
+      <tr><td><code>3</code></td><td>Otentikasi gagal — AEAD, tanda tangan, atau kata sandi salah.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="examples">Contoh</h2>
+<pre class="code"><span class="c"># buat pasangan kunci (privat terkunci kata sandi)</span>
+tesseract-crypt keygen -o alice --passphrase
+
+<span class="c"># enkripsi berkas untuk Bob, ditandatangani Alice</span>
+tesseract-crypt encrypt -r bob.pub -k alice.key -i rahasia.txt -o rahasia.enc
+
+<span class="c"># dekripsi + wajibkan penanda tangan; gagal => exit 3, tanpa file</span>
+tesseract-crypt decrypt -k bob.key -i rahasia.enc -o rahasia.out \
+                        --require-signer alice.pub
+
+<span class="c"># string langsung ke stdout (otomatis ber-armor)</span>
+tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
+
+<span class="c"># mode simetris kata sandi</span>
+tesseract-crypt encrypt --passphrase -i catatan.txt -o catatan.enc
+
+<span class="c"># tanda tangan detached + verifikasi</span>
+tesseract-crypt sign -k alice.key -i rilis.tar.gz -o rilis.tar.gz.sig
+tesseract-crypt verify -k alice.pub -i rilis.tar.gz -s rilis.tar.gz.sig
+
+<span class="c"># inspeksi header & fingerprint</span>
+tesseract-crypt inspect -i rahasia.enc
+tesseract-crypt info -k alice.key</pre>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
+      </nav>
+      <span class="foot-meta mono">v0.1.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

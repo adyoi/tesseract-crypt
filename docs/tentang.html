@@ -1,110 +1,117 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tentang &amp; Perbandingan — Tesseract Crypt</title>
-<meta name="description" content="Keunggulan desain Tesseract dan perbandingan dengan age, GnuPG, OpenSSL enc, sops, Picocrypt, dan VeraCrypt — X25519 hybrid, Ed25519 sign-then-encrypt, XChaCha20-Poly1305, Argon2id.">
+<title>About &amp; Comparison — Tesseract Crypt</title>
+<meta name="description" content="Tesseract design advantages and comparison with age, GnuPG, OpenSSL enc, sops, Picocrypt, and VeraCrypt — X25519 hybrid, Ed25519 sign-then-encrypt, XChaCha20-Poly1305, Argon2id.">
 <link rel="stylesheet" href="style.css">
+<link rel="alternate" hreflang="en" href="tentang.html">
+<link rel="alternate" hreflang="id" href="id/tentang.html">
+<link rel="alternate" hreflang="x-default" href="tentang.html">
 </head>
 <body>
 <header class="site">
   <div class="wrap">
     <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
     <nav>
-      <a href="index.html">Beranda</a>
-      <a href="cli.html">Referensi CLI</a>
-      <a href="format.html">Spesifikasi Format</a>
-      <a href="tentang.html" class="active">Tentang</a>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="tentang.html" class="active">About</a>
       <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="id/tentang.html" lang="id" hreflang="id">ID</a>
     </nav>
   </div>
 </header>
 
 <main class="wrap">
   <section class="hero">
-    <h1>Mengapa <em>Tesseract</em>?</h1>
+    <h1>Why <em>Tesseract</em>?</h1>
     <p class="lead">
-      Tesseract dirancang sebagai satu tool CLI yang menggabungkan
-      <strong>enkripsi kunci publik</strong> <em>dan</em> <strong>passphrase</strong>,
-      <strong>tanda tangan bawaan</strong> dengan <em>pinning</em> pengirim,
-      <strong>anti-tamper per-chunk</strong> saat streaming, dan
-      <strong>kunci terkunci</strong> — kombinasi yang tidak ada pada
-      alat enkripsi file modern lainnya dalam satu biner.
+      Tesseract is designed to be a single CLI tool combining
+      <strong>public-key encryption</strong> <em>and</em>
+      <strong>passphrase encryption</strong>, a <strong>built-in signature</strong>
+      with sender <strong>pinning</strong>, <strong>per-chunk anti-tamper</strong>
+      while streaming, and <strong>locked keys</strong> — a combination that
+      does not exist in any other modern file-encryption tool in a single
+      binary.
     </p>
   </section>
 
   <section>
-    <h2>Keunggulan desain</h2>
+    <h2>Design advantages</h2>
     <div class="grid">
       <article>
         <h3>Hybrid X25519 + forward secrecy</h3>
-        <p>Setiap pesan memakai kunci <em>ephemeral</em> X25519; DH statis
-        dengan identitas penerima tetap dihitung. Pesan hanya terbuka untuk
-        penerima yang tepat, tanpa ada pesan yang berbagi kunci statis.</p>
+        <p>Every message uses an <em>ephemeral</em> X25519 key; the static DH
+        against the recipient's identity is still computed. Messages open only
+        for the right recipient, and no message ever shares a static key.</p>
       </article>
       <article>
-        <h3>Sign-then-encrypt bawaan</h3>
-        <p>Ed25519ph streaming menyatu dalam alur enkripsi:
-        <code>encrypt -k alice.key -r bob.pub</code> langsung menghasilkan
-        pesan bertanda tangan. Verifikasi opsional dengan
-        <code>--require-signer alice.pub</code> (pinning identitas).</p>
+        <h3>Built-in sign-then-encrypt</h3>
+        <p>Ed25519ph streaming is built into the encryption flow:
+        <code>encrypt -k alice.key -r bob.pub</code> produces a signed message
+        directly. Optional verification with
+        <code>--require-signer alice.pub</code> (identity pinning).</p>
       </article>
       <article>
-        <h3>Anti-tamper per-chunk</h3>
-        <p>Header = AAD untuk setiap chunk (<code>header ‖ index ‖ final</code>).
-        Reorder, splice, maupun truncation terdeteksi secara kriptografis —
-        bukan sekadar cek awal/akhir file.</p>
+        <h3>Per-chunk anti-tamper</h3>
+        <p>The header is the AAD for every chunk
+        (<code>header ‖ index ‖ final</code>). Reorder, splice, and truncation
+        are all detected cryptographically — not just an end-to-end check.</p>
       </article>
       <article>
-        <h3>Streaming memori konstan</h3>
-        <p>Chunk 64 KiB default (4 KiB–16 MiB): file multi-GB diproses tanpa
-        memuat plaintext penuh ke RAM. Berbeda dari Picocrypt yang membatasi
-        512 MiB per file.</p>
+        <h3>Constant-memory streaming</h3>
+        <p>64 KiB chunks by default (4 KiB–16 MiB): multi-GB files are
+        processed without loading the whole plaintext into RAM. Unlike
+        Picocrypt, which caps files at 512&nbsp;MiB.</p>
       </article>
       <article>
-        <h3>Dua mode, satu format</h3>
-        <p><code>encrypt -r recipient.pub</code> (asimetris) <em>atau</em>
-        <code>--passphrase</code> (simetris) — CLI menolak keduanya sekaligus,
-        tidak ada ambiguitas mode seperti pada alur PGP yang kompleks.</p>
+        <h3>Two modes, one format</h3>
+        <p><code>encrypt -r recipient.pub</code> (asymmetric) <em>or</em>
+        <code>--passphrase</code> (symmetric) — the CLI rejects both at once,
+        with none of the ambiguity of complex PGP flows.</p>
       </article>
       <article>
-        <h3>Argon2id berbatas + kunci terkunci</h3>
-        <p>Passphrase memakai Argon2id (memory-hard) dengan batas keras
-        <code>ops/mem</code> saat membuka header tak-tepercaya (anti-DoS).
-        Kunci privat bisa disimpan <em>locked</em> (TSK2) dan di-unlock
-        per pemakaian dengan pembersihan memori.</p>
+        <h3>Capped Argon2id + locked keys</h3>
+        <p>Passphrases use Argon2id (memory-hard) with hard
+        <code>ops/mem</code> caps when opening untrusted headers (anti-DoS).
+        Private keys can be stored <em>locked</em> (TSK2) and unlocked per use
+        with memory wiping.</p>
       </article>
       <article>
-        <h3>Armor PEM-like</h3>
-        <p>Output ke TTY otomatis dibungkus
-        <code>-----BEGIN TESSERACT MESSAGE-----</code> — aman disalin-tempel
-        lewat email, chat, atau kanal teks lain.</p>
+        <h3>PEM-like armor</h3>
+        <p>TTY output is automatically wrapped in
+        <code>-----BEGIN TESSERACT MESSAGE-----</code> — safe to copy-paste
+        through email, chat, or any text channel.</p>
       </article>
       <article>
-        <h3>Output atomik</h3>
-        <p>Dekripsi ditulis ke <code>.part</code> dan hanya di-rename setelah
-        AEAD dan tanda tangan sukses. Kegagalan otentikasi = kode keluar
-        <code>3</code>, tanpa file korup di tujuan.</p>
+        <h3>Atomic output</h3>
+        <p>Decryption writes to <code>.part</code> and renames only after the
+        AEAD and signature succeed. Authentication failure = exit code
+        <code>3</code>, with no corrupted file at the destination.</p>
       </article>
       <article>
-        <h3>Hibrida perpustakaan + CLI</h3>
-        <p>Inti <strong>C11</strong> (embeddable) + CLI <strong>C++17</strong>,
-        satu biner <code>tesseract-crypt</code> dengan alias <code>tscrypt</code>
-        di Linux, Windows, macOS, dan BSD. Lisensi <strong>MIT</strong>.</p>
+        <h3>Library + CLI hybrid</h3>
+        <p>A <strong>C11</strong> core (embeddable) + <strong>C++17</strong>
+        CLI, one binary named <code>tesseract-crypt</code> with the
+        <code>tscrypt</code> alias on Linux, Windows, macOS, and BSD.
+        <strong>MIT</strong> licensed.</p>
       </article>
     </div>
   </section>
 
   <section>
-    <h2>Perbandingan dengan alat lain</h2>
-    <p>Fokus alat memang berbeda-beda (file, surel, secret-config, volume).
-    Tabel berikut membandingkan kemampuan praktis yang paling sering ditanyakan:</p>
+    <h2>Comparison with other tools</h2>
+    <p>The tools below serve different focuses (files, email, secret configs,
+    volumes). The table compares the practical capabilities most often asked
+    about:</p>
     <div class="table-scroll">
     <table>
       <thead>
         <tr>
-          <th>Aspek</th>
+          <th>Aspect</th>
           <th>Tesseract</th>
           <th>age / rage</th>
           <th>GnuPG</th>
@@ -116,69 +123,69 @@
       </thead>
       <tbody>
         <tr>
-          <td>Kripto utama</td>
+          <td>Primary crypto</td>
           <td>X25519 + XChaCha20-Poly1305</td>
           <td>X25519 + ChaCha20-Poly1305</td>
           <td>RSA/ECC (OpenPGP)</td>
-          <td>AES (banyak mode legacy tanpa otentikasi)</td>
-          <td>pakai age/PGP/KMS di bawahnya</td>
+          <td>AES (many legacy modes without authentication)</td>
+          <td>uses age/PGP/KMS underneath</td>
           <td>XChaCha20-Poly1305</td>
-          <td>AES/XTS (volume)</td>
+          <td>AES/XTS (volumes)</td>
         </tr>
         <tr>
-          <td>Kunci publik</td>
+          <td>Public-key</td>
           <td>✅</td>
           <td>✅</td>
           <td>✅</td>
           <td>❌</td>
           <td>✅</td>
-          <td>❌ (password saja)</td>
-          <td>❌</td>
-        </tr>
-        <tr>
-          <td>Tanda tangan + pinning</td>
-          <td>✅ bawaan (<code>--require-signer</code>)</td>
-          <td>❌ (butuh minisign terpisah)</td>
-          <td>✅ (tapi kompleks)</td>
-          <td>❌</td>
-          <td>❌</td>
-          <td>❌</td>
+          <td>❌ (password only)</td>
           <td>❌</td>
         </tr>
         <tr>
-          <td>Streaming file besar</td>
-          <td>✅ chunk 64 KiB, memori konstan</td>
-          <td>✅</td>
-          <td>✅</td>
-          <td>✅</td>
-          <td>✅ (secret/config)</td>
-          <td>❌ maks. 512 MiB</td>
-          <td>✅ volume</td>
+          <td>Signing + pinning</td>
+          <td>✅ built-in (<code>--require-signer</code>)</td>
+          <td>❌ (needs minisign separately)</td>
+          <td>✅ (but complex)</td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>❌</td>
         </tr>
         <tr>
-          <td>KDF passphrase</td>
+          <td>Large-file streaming</td>
+          <td>✅ 64 KiB chunks, constant memory</td>
+          <td>✅</td>
+          <td>✅</td>
+          <td>✅</td>
+          <td>✅ (secrets/config)</td>
+          <td>❌ max 512 MiB</td>
+          <td>✅ volumes</td>
+        </tr>
+        <tr>
+          <td>Passphrase KDF</td>
           <td>Argon2id (memory-hard)</td>
           <td>scrypt</td>
-          <td>S2K iteratif</td>
+          <td>iterated S2K</td>
           <td>—</td>
           <td>—</td>
           <td>Argon2id</td>
           <td>PBKDF2</td>
         </tr>
         <tr>
-          <td>Anti-tamper per-chunk</td>
-          <td>✅ header sebagai AAD</td>
+          <td>Per-chunk tamper detection</td>
+          <td>✅ header as AAD</td>
           <td>✅ per-chunk AEAD</td>
-          <td>parsial</td>
-          <td>❌ (banyak mode tanpa MAC)</td>
+          <td>partial</td>
+          <td>❌ (many modes without MAC)</td>
           <td>n/a</td>
           <td>✅ HMAC</td>
           <td>n/a</td>
         </tr>
         <tr>
-          <td>Armor teks</td>
+          <td>Text armor</td>
           <td>✅</td>
-          <td>✅ (identity bech32)</td>
+          <td>✅ (bech32 identity)</td>
           <td>✅ ASCII-armor</td>
           <td>⧉ <code>-a</code> base64</td>
           <td>n/a</td>
@@ -186,9 +193,9 @@
           <td>❌</td>
         </tr>
         <tr>
-          <td>Kunci terkunci passphrase</td>
+          <td>Passphrase-locked keys</td>
           <td>✅ TSK2</td>
-          <td>✅ identity terenkripsi</td>
+          <td>✅ encrypted identity</td>
           <td>✅</td>
           <td>n/a</td>
           <td>n/a</td>
@@ -196,17 +203,17 @@
           <td>n/a</td>
         </tr>
         <tr>
-          <td>Fokus</td>
-          <td>file &amp; string, enkripsi + tanda tangan</td>
-          <td>file, minimalis</td>
-          <td>surel/sertifikat/trust web</td>
+          <td>Focus</td>
+          <td>files &amp; strings, encryption + signing</td>
+          <td>files, minimal</td>
+          <td>email/certificates/trust web</td>
           <td>quick &amp; dirty</td>
-          <td>secrets di config/CI</td>
-          <td>GUI file tunggal</td>
-          <td>disk/container</td>
+          <td>secrets in config/CI</td>
+          <td>GUI single file</td>
+          <td>disk/containers</td>
         </tr>
         <tr>
-          <td>Lisensi</td>
+          <td>License</td>
           <td>MIT (libsodium: ISC)</td>
           <td>BSD-3 / MIT</td>
           <td>GPL-3</td>
@@ -221,23 +228,24 @@
   </section>
 
   <section>
-    <h2>Posisi desain</h2>
+    <h2>Design positioning</h2>
     <div class="warn">
-      <strong>Jujur soal kesiapan.</strong> Tesseract masih <span class="mono">v0.1.0</span>
-      dan <em>belum diaudit pihak ketiga</em>. age dan GnuPG sudah bertahun-tahun
-      diaudit dan diadopsi luas — untuk produksi lingkungan kritis, keduanya
-      tetap referensi. Tesseract menawarkan <strong>kombinasi fitur</strong>
-      (pubkey + passphrase, tanda tangan bawaan dengan pinning, streaming
-      anti-tamper, kunci terkunci, kebersihan memori) dalam satu CLI modern
-      yang belum dimiliki tools lain.
+      <strong>Readiness, honestly.</strong> Tesseract is still
+      <span class="mono">v0.1.0</span> and <em>not yet audited by a third
+      party</em>. age and GnuPG have been audited for years and are widely
+      adopted — for critical production environments they remain the
+      references. Tesseract offers a <strong>combination of features</strong>
+      (public-key + passphrase, built-in signing with pinning, anti-tamper
+      streaming, locked keys, memory hygiene) in a single modern CLI that no
+      other tool has.
     </div>
     <p>
-      Keunggulan teknis tidak mengklaim "lebih aman dari AES/GnuPG" — enkripsi
-      memakai primitif libsodium yang diaudit (X25519, XChaCha20-Poly1305,
-      Ed25519, Argon2id). Yang baru adalah <em>arsitektur</em>: format header
-      264 byte, key schedule hibrida, AAD per-chunk, dan penulisan atomik yang
-      diverifikasi — semuanya terdokumentasi di
-      <a href="format.html">Spesifikasi Format</a>.
+      The technical edge does not claim "more secure than AES/GnuPG" — the
+      encryption uses audited libsodium primitives (X25519,
+      XChaCha20-Poly1305, Ed25519, Argon2id). What is new is the
+      <em>architecture</em>: a 264-byte header format, hybrid key schedule,
+      per-chunk AAD, and verified atomic writes — all documented in the
+      <a href="format.html">Format Specification</a>.
     </p>
   </section>
 </main>
@@ -246,12 +254,11 @@
   <div class="wrap">
     <div class="foot-row">
       <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
-      <span class="tagline">superintelligence-grade crypto</span>
       <nav class="foot-links">
         <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
-        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
-        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
-        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

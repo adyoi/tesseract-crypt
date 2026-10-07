@@ -289,12 +289,17 @@ main { padding: 2.6rem 0 3.8rem; }
 }
 article {
   position: relative;
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
-  border: 1px solid var(--border);
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.02) 48%, rgba(110, 231, 255, 0.035));
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 14px;
   padding: 1.2rem 1.3rem;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 26px rgba(110, 231, 255, 0.045),
+    0 10px 28px rgba(0, 0, 0, 0.38);
   overflow: hidden;
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
 }
@@ -306,11 +311,23 @@ article::before {
   background: linear-gradient(90deg, transparent, var(--cyan), transparent);
   opacity: 0;
   transition: opacity 0.25s ease;
+  z-index: 1;
+}
+article::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(118deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 22%, transparent 44%);
+  pointer-events: none;
 }
 article:hover {
   transform: translateY(-3px);
-  border-color: var(--border-strong);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(143, 123, 255, 0.12);
+  border-color: rgba(170, 205, 255, 0.36);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    inset 0 0 26px rgba(110, 231, 255, 0.06),
+    0 16px 44px rgba(0, 0, 0, 0.52),
+    0 0 26px rgba(143, 123, 255, 0.14);
 }
 article:hover::before { opacity: 0.9; }
 article h3 { margin-top: 0; display: inline-block; }
@@ -402,16 +419,6 @@ footer.site .wrap { padding-bottom: 0; }
   text-transform: none;
   letter-spacing: 0.04em;
   filter: drop-shadow(0 0 12px rgba(110, 231, 255, 0.30));
-}
-.foot-row .tagline {
-  font-size: 0.66rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--cyan);
-  border: 1px solid var(--border-strong);
-  border-radius: 999px;
-  padding: 0.18em 0.7em;
-  box-shadow: var(--glow-cyan);
 }
 .foot-links {
   display: flex;
