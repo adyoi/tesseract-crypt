@@ -67,13 +67,13 @@ static int id_set(const char *id) {
  * it when it differs from in->recipients). */
 static tess_status seal_resolve_keys(const tess_seal_options *in,
                                      tess_seal_options *out,
-                                     const tess_key ***recip_view,
+                                     const tess_key *const **recip_view,
                                      tess_key **owned, size_t *n_owned) {
     tess_status rc = TESS_OK;
     size_t i, n = 0;
 
     *out = *in;
-    *recip_view = in->recipients;
+    *recip_view = (const tess_key **)in->recipients;
     *n_owned = 0;
 
     if (in->key_provider == NULL) {
@@ -179,7 +179,7 @@ static tess_status open_resolve_keys(const tess_open_options *in,
         out->recipient_secret = k;
     }
 
-    if (out->required_signer_public == NULL && id_set(in->required_signer_id)) {
+    if (out->required_signer == NULL && id_set(in->required_signer_id)) {
         tess_key *k = NULL;
         rc = in->key_provider(in->required_signer_id, TESS_KP_PUB, &k,
                               in->key_provider_ctx);
@@ -192,7 +192,7 @@ static tess_status open_resolve_keys(const tess_open_options *in,
             return TESS_ERR_INTERNAL;
         }
         owned[n++] = k;
-        out->required_signer_public = k;
+        out->required_signer = k;
     }
 
     *n_owned = n;
@@ -1350,7 +1350,6 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
         /* keep resolved keys alive while oo/ro pointers are in use */
         memcpy(&oo, &ro, sizeof oo);
         /* signer check below uses oo.required_signer (may be resolved) */
-        free(recip_placeholder_do_not_use, 0); /* no-op placeholder */
         (void)n_owned;
     }
 

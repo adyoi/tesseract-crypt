@@ -12,7 +12,6 @@ int main(void) {
     size_t ct_len = 0, ct2_len = 0, out_len = 0;
     tess_seal_options so;
     tess_open_options oo;
-    tess_message_info info;
 
     CHECK(sodium_init() >= 0);
     CHECK_ST(tess_keygen(&a_s, &a_p), TESS_OK);
