@@ -8,9 +8,6 @@
 
 **Encrypt strings & files with public/private keys — modern hybrid, streaming, signed.**
 
-> **Bahasa Indonesia:** [README.md](README.md) · dokumentasi ID:
-> [https://adyoi.github.io/tesseract-crypt/id/](https://adyoi.github.io/tesseract-crypt/id/)
-
 `libtesseract_crypt` (C11) + `tesseract-crypt` (CLI, C++17, short alias: `tscrypt`)
 built on [libsodium](https://doc.libsodium.org/): X25519 *hybrid* encryption,
 Ed25519 sign-then-encrypt, XChaCha20-Poly1305 AEAD per-chunk, and Argon2id for
@@ -27,6 +24,12 @@ passphrase mode.
 | **Rekey / key rotation** | `tesseract-crypt rekey` to rewrap an existing message for new recipients/sender without touching the ciphertext payload | 
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
 
+## Install
+
+Quick starts below; full instructions for every platform (Linux, Windows,
+macOS, BSD), package managers, and from-source builds are in
+**[INSTALL.md](INSTALL.md)**.
+
 ### Windows Package Manager (winget)
 
 ```powershell
@@ -37,7 +40,7 @@ To upgrade: `winget upgrade Adyoi.TesseractCrypt`
 
 To uninstall: `winget uninstall Adyoi.TesseractCrypt`
 
-## Install (APT — Debian/Ubuntu amd64)
+### APT — Debian/Ubuntu amd64
 
 Prebuilt `tesseract-crypt` binaries are served from an APT repository hosted
 on GitHub Pages and signed with GPG:
@@ -140,6 +143,7 @@ A header-only C++17 wrapper is available in `<tesseract/tesseract.hpp>`
 - [CLI reference](https://adyoi.github.io/tesseract-crypt/cli.html)
 - [Format specification](https://adyoi.github.io/tesseract-crypt/format.html)
 - [About & comparison](https://adyoi.github.io/tesseract-crypt/tentang.html)
+- [Installation guide](INSTALL.md) — all platforms, packages & from source
 - [Audit readiness](docs/audit-readiness.md) — checklist for security auditors
 - [Code coverage](docs/coverage.md) — gcov/lcov workflow
 

@@ -1,183 +1,183 @@
 .\" tesseract-crypt(1) — man page for the tesseract-crypt command line tool
 .\" SPDX-License-Identifier: MIT
-.TH TESSERACT-CRYPT 1 "Oktober 2026" "tesseract-crypt 0.1.0" "User Commands"
-.SH NAMA
-tesseract-crypt \- enkripsi dan dekripsi string serta file dengan kunci publik/pribadi
-.SH SINOPSIS
+.TH TESSERACT-CRYPT 1 "October 2026" "tesseract-crypt 0.1.0" "User Commands"
+.SH NAME
+tesseract-crypt \- encrypt and decrypt strings and files with public/private keys
+.SH SYNOPSIS
 .B tesseract-crypt
-\fIperintah\fR [\fIopsi\fR]
+\fIcommand\fR [\fIoptions\fR]
 .br
 .B tscrypt
-\fIperintah\fR [\fIopsi\fR]
-.SH DESKRIPSI
+\fIcommand\fR [\fIoptions\fR]
+.SH DESCRIPTION
 .B tesseract-crypt
-adalah antarmuka baris perintah untuk
+is the command-line interface for
 .BR libtesseract_crypt ,
-perpustakaan C11 untuk enkripsi hibrida kunci publik dengan
-forward secrecy, tanda tangan Ed25519 (sign-then-encrypt),
-XChaCha20-Poly1305 per-chunk, dan mode fallback kata sandi Argon2id.
+a C11 library for hybrid public-key encryption with forward secrecy,
+Ed25519 signatures (sign-then-encrypt), per-chunk XChaCha20-Poly1305,
+and an Argon2id passphrase fallback mode.
 .PP
-Biner dipasang dengan dua nama: nama kanonik
+The binary is installed under two names: the canonical name
 .B tesseract-crypt
-dan alias pendek
+and the short alias
 .BR tscrypt .
-Kedua nama identik dan tersedia pada semua platform
-(Linux, Windows, macOS, BSD). Di Windows akhiran
+Both names are identical and available on every platform
+(Linux, Windows, macOS, BSD). On Windows the
 .B .exe
-ditambahkan otomatis.
+suffix is added automatically.
 .PP
-Input/output default adalah stdin/stdout. Output ke terminal (TTY)
-otomatis dibungkus dalam armor teks
+Default input/output is stdin/stdout. Output to a terminal (TTY) is
+automatically wrapped in the text armor
 .B "-----BEGIN TESSERACT MESSAGE-----"
-agar aman disalin-tempel. Input ber-armor terdeteksi otomatis saat
-dekripsi dan inspeksi.
-.SH PERINTAH
+so that it can be copied and pasted safely. Armored input is auto-detected
+during decryption and inspection.
+.SH COMMANDS
 .TP
 .B keygen
 \fR\-o\fR \fINAME\fR [\fB--passphrase\fR] [\fB--kdf-ops\fR \fIN\fR] [\fB--kdf-mem\fR \fIMB\fR]
-Membuat pasangan kunci \fINAME.key\fR (pribadi) dan \fINAME.pub\fR (publik).
-Dengan \fB--passphrase\fR, kunci pribadi disimpan terkunci
-(XChaCha20-Poly1305 dengan kunci turunan Argon2id).
+Create the key pair \fINAME.key\fR (private) and \fINAME.pub\fR (public).
+With \fB--passphrase\fR the private key is stored locked
+(XChaCha20-Poly1305 with an Argon2id-derived key).
 .TP
 .B pubkey
 \fB\-k\fR \fIKEYFILE\fR [\fB\-o\fR \fIOUT\fR]
-Mengekspor kunci publik dari berkas kunci pribadi.
+Export the public key from a private key file.
 .TP
 .B encrypt
 \fB\-r\fR \fIRECIPIENT.pub\fR ...
-Mengenkripsi berkas untuk penerima. Ulangi
-\fB\-r\fR untuk mengirim ke banyak penerima sekaligus (format v2).
-Tanpa \fB\-k\fR pesan bersifat anonim;
-dengan \fB\-k\fR pesan ditandatangani (Ed25519).
+Encrypt a file for a recipient. Repeat
+\fB\-r\fR to send to several recipients at once (format v2).
+Without \fB\-k\fR the message is anonymous;
+with \fB\-k\fR the message is signed (Ed25519).
 .TP
 .B encrypt
 \fB--passphrase\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--armor\fR]
-Mode simetris: kunci diturunkan dari kata sandi dengan Argon2id.
+Symmetric mode: the key is derived from a passphrase with Argon2id.
 .TP
 .B encrypt
-\fB--text\fR \(dqrahasia\(dq \fB\-r\fR \fIRECIPIENT.pub\fR
-Mengenkripsi string langsung; output ber-armor ke stdout.
+\fB--text\fR \(dqsecret\(dq \fB\-r\fR \fIRECIPIENT.pub\fR
+Encrypt a string directly; the output is armored to stdout.
 .TP
 .B decrypt
 \fB\-k\fR \fIRECIPIENT.key\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--require-signer\fR \fISIGNER.pub\fR]
-Mendekripsi pesan. Dengan \fB--require-signer\fR, tanda tangan diverifikasi
-terhadap kunci publik tersebut sebelum plaintext ditulis (pinning identitas).
+Decrypt a message. With \fB--require-signer\fR the signature is verified
+against that public key before any plaintext is written (identity pinning).
 .TP
 .B decrypt
 \fB--passphrase\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR]
-Mode simetris: masukkan kata sandi yang sama seperti saat enkripsi.
+Symmetric mode: enter the same passphrase that was used for encryption.
 .TP
 .B sign
 \fB\-k\fR \fIKEY\fR [\fB\-i\fR \fIFILE\fR] [\fB\-o\fR \fIFILE.sig\fR]
-Menandatangani berkas (tanda tangan detached, Ed25519ph).
+Sign a file (detached Ed25519ph signature).
 .TP
 .B verify
 \fB\-k\fR \fIPUBKEY\fR \fB\-i\fR \fIFILE\fR \fB\-s\fR \fIFILE.sig\fR
-Memverifikasi tanda tangan detached.
+Verify a detached signature.
 .TP
 .B rekey
 \fB\-k\fR \fIOLD_KEY\fR \fR|\fR \fB\-\-old-passphrase\fR \fIPASS\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] \fB\-r\fR \fIRECIPIENT.pub\fR [\fB\-r\fR \fIMORE.pub\fR ...] [\fB\-s\fR \fISENDER.key\fR] [\fB\-\-require-signer\fR \fISIGNER.pub\fR] [\fB\-\-chunk-size\fR \fIN\fR] [\fB\-\-no-sign\fR]
-Mendekripsi ulang pesan ke penerima baru (key rotation), dapat mengganti pengirim dan memverifikasi signer lama.
+Re-encrypt a message for new recipients (key rotation); may change the sender and verify the previous signer.
 .TP
 .B inspect
 [\fB\-i\fR \fIFILE\fR]
-Membaca header pesan (versi, mode, ukuran chunk, panjang plaintext,
-jumlah penerima, dan status tanda tangan) tanpa mendekripsi.
+Read the message header (version, mode, chunk size, plaintext length,
+recipient count, and signature status) without decrypting.
 .TP
 .B info
 \fB\-k\fR \fIKEYFILE\fR
-Menampilkan tipe berkas kunci dan fingerprint-nya.
+Show the key file type and its fingerprint.
 .TP
 .B version
-Mencetak versi. Setara dengan \fB--version\fR / \fB\-V\fR.
+Print the version. Equivalent to \fB--version\fR / \fB\-V\fR.
 .TP
 .B help
-Mencetak bantuan. Setara dengan \fB--help\fR / \fB\-h\fR.
-.SH OPSI UMUM
+Print help. Equivalent to \fB--help\fR / \fB\-h\fR.
+.SH COMMON OPTIONS
 .TP
 .B \-i \fIFILE\fR
-Berkas input; \fI\-\fR atau tanpa nilai berarti stdin.
+Input file; \fI\-\fR or omitted means stdin.
 .TP
 .B \-o \fIFILE\fR
-Berkas output; \fI\-\fR atau tanpa nilai berarti stdout.
+Output file; \fI\-\fR or omitted means stdout.
 .TP
 .B \-\-armor
-Memaksa output teks ber-armor (default saat menuju TTY).
+Force armored text output (default when writing to a TTY).
 .TP
 .B \-\-chunk-size \fIN\fR
-Ukuran chunk plaintext per blok; rentang 4096\ ...\ 16777216 byte
+Plaintext chunk size per block; range 4096\ ...\ 16777216 bytes
 (default 65536).
 .TP
 .B \-\-kdf-ops \fIN\fR
-dan
+and
 .B \-\-kdf-mem \fIMB\fR
-Menyesuaikan biaya Argon2id untuk kunci berkas (keygen) atau mode
-passphrase (encrypt/decrypt).
-.SH KODE KELUAR
+Adjust the Argon2id cost for key files (keygen) or passphrase
+mode (encrypt/decrypt).
+.SH EXIT STATUS
 .TP
 .B 0
-Sukses.
+Success.
 .TP
 .B 1
-Kesalahan umum (I/O, format berkas, kode error library).
+General error (I/O, file format, library error code).
 .TP
 .B 2
-Penggunaan salah: argumen tak dikenal atau tidak lengkap (sebagian kesalahan
-validasi argumen juga memetakan ke sini).
+Usage error: unknown or incomplete arguments (some argument validation
+errors also map here).
 .TP
 .B 3
-Otentikasi gagal: AEAD, tanda tangan, signer wajib, penerima tidak sesuai, atau kata sandi salah.
-Tidak ada berkas output yang ditulis.
-.SH CONTOH
+Authentication failure: AEAD, signature, required signer, recipient mismatch, or wrong passphrase.
+No output file was written.
+.SH EXAMPLES
 .nf
 tesseract-crypt keygen -o alice --passphrase
 tesseract-crypt keygen -o bob
-tesseract-crypt encrypt -r bob.pub -k alice.key -i rahasia.txt -o rahasia.enc
-tesseract-crypt decrypt -k bob.key -i rahasia.enc -o rahasia.out --require-signer alice.pub
-tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
-tesseract-crypt rekey -k bob.key -i rahasia.enc -o rahasia.rekey -r charlie.pub
+tesseract-crypt encrypt -r bob.pub -k alice.key -i secret.txt -o secret.enc
+tesseract-crypt decrypt -k bob.key -i secret.enc -o secret.out --require-signer alice.pub
+tesseract-crypt encrypt --text "Hello world" -r bob.pub
+tesseract-crypt rekey -k bob.key -i secret.enc -o secret.rekey -r charlie.pub
 .f
 .PP
-Pada semua contoh di atas, awalan
+In every example above, the
 .B tesseract-crypt
-dapat diganti dengan
-.B tscrypt.
-.SH BERKAS
+prefix can be replaced with
+.BR tscrypt .
+.SH FILES
 .TP
 .B NAME.key
-Kunci pribadi. TSK1 (164 byte, apa adanya) atau TSK2 (232 byte, terkunci
-Argon2id). Dapat di-armor ke label
+Private key. TSK1 (164 bytes, raw) or TSK2 (232 bytes, Argon2id-locked).
+May be armored with the label
 .B "TESSERACT PRIVATE KEY"
-atau
+or
 .BR "TESSERACT PRIVATE KEY (LOCKED)" .
 .TP
 .B NAME.pub
-Kunci publik TSKp (68 byte); armor label
+Public key TSKp (68 bytes); armor label
 .BR "TESSERACT PUBLIC KEY" .
-.SH KETERSEDIAAN
-Dibangun dan diuji lintas platform: Windows, Linux, macOS, BSD/Unix-like.
-Alias \fBtscrypt\fR tersedia di semua platform (di Windows dengan akhiran
-\fB.exe\fR otomatis).
-.SH KEAMANAN
-Kunci pribadi di-\fBsodium_mlock\fR saat dimuat dan di-\fBsodium_memzero\fR
-setelah digunakan. Header 264 byte menjadi AAD setiap chunk, sehingga
-truncation, reorder, dan splice terdeteksi secara kriptografis. Parameter
-Argon2id dari header tak tepercaya dibatasi (maksimum 16 ops dan 4 GiB)
-untuk mencegah penyalahgunaan memori. RNG bawaan libsodium
-(\fBrandombytes_buf\fR) selalu dipakai \-\- kode ini tidak pernah memakai
-RNG sendiri. Penggantian berkas atomik menggunakan rename; di Windows
-menggunakan \fBMoveFileExA\fR untuk menimpa berkas tujuan.
+.SH AVAILABILITY
+Built and tested cross-platform: Windows, Linux, macOS, BSD/Unix-like.
+The \fBtscrypt\fR alias is available on every platform (with the automatic
+\fB.exe\fR suffix on Windows).
+.SH SECURITY
+Private keys are \fBsodium_mlock\fR-ed when loaded and \fBsodium_memzero\fR-ed
+after use. The 264-byte header is the AAD of every chunk, so truncation,
+reordering, and splicing are detected cryptographically. Argon2id parameters
+from untrusted headers are capped (maximum 16 ops and 4 GiB)
+to prevent memory abuse. The built-in libsodium RNG
+(\fBrandombytes_buf\fR) is always used \-\- this code never rolls its own
+RNG. Atomic file replacement uses rename; on Windows it uses
+\fBMoveFileExA\fR to overwrite the destination.
 .sp
-Lihat DEVELOPMENT.md dan docs/format.html untuk spesifikasi lengkap,
-dan SECURITY.md untuk cara melaporkan kerentanan.
-.SH LIHAT JUGA
+See DEVELOPMENT.md and docs/format.html for the full specification,
+and SECURITY.md for how to report vulnerabilities.
+.SH SEE ALSO
 .BR sodium_init (3),
 .BR crypto_aead_xchacha20poly1305_ietf_encrypt (3),
 .BR crypto_pwhash (3),
 .BR crypto_sign (3)
 .br
-Dokumentasi daring: halaman GitHub Pages proyek ini (docs/).
-.SH PENULIS
-Kontributor proyek Tesseract Crypt.
-.SH LISENSI
-MIT. Perpustakaan dasar: libsodium (ISC).
+Online documentation: this project's GitHub Pages site (docs/).
+.SH AUTHORS
+Tesseract Crypt contributors.
+.SH LICENSE
+MIT. Underlying library: libsodium (ISC).

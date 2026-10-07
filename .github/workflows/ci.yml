@@ -37,7 +37,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: Smoke test CLI (nama kanonik + alias)
+      - name: Smoke test CLI (canonical name + alias)
         run: |
           ./build/tesseract-crypt version
           ./build/tesseract-crypt help >/dev/null
@@ -90,7 +90,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
-      - name: Smoke test CLI (nama kanonik + alias)
+      - name: Smoke test CLI (canonical name + alias)
         run: |
           ./build/Release/tesseract-crypt.exe version
           ./build/Release/tscrypt.exe version
@@ -117,7 +117,7 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: Smoke test CLI (nama kanonik + alias)
+      - name: Smoke test CLI (canonical name + alias)
         run: |
           ./build/tesseract-crypt version
           ./build/tscrypt version

@@ -1,21 +1,21 @@
 ---
 name: Bug report
-description: Laporkan kerusakan atau perilaku yang tak terduga
+description: Report breakage or unexpected behavior
 title: "[Bug] "
 labels: ["bug"]
 body:
   - type: textarea
     id: description
     attributes:
-      label: Deskripsi
-      description: Apa yang terjadi / apa yang seharusnya terjadi?
+      label: Description
+      description: What happened / what did you expect to happen?
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Langkah reproduksi
-      description: Perintah CLI atau potongan kode C/C++ yang memicu masalah.
+      label: Steps to reproduce
+      description: The CLI command or C/C++ snippet that triggers the problem.
       placeholder: |
         tesseract-crypt keygen -o alice --passphrase
         tesseract-crypt encrypt ...
@@ -24,45 +24,45 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Perilaku yang diharapkan
+      label: Expected behavior
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: Versi
-      description: Output `tesseract-crypt version`
+      label: Version
+      description: Output of `tesseract-crypt version`
     validations:
       required: true
   - type: dropdown
     id: platform
     attributes:
       label: Platform
-      description: Di mana masalah terjadi?
+      description: Where does the problem occur?
       options:
         - Linux (x86_64)
         - Linux (aarch64)
         - Windows
         - macOS
         - BSD
-        - Lainnya (jelaskan di kolom tambahan)
+        - Other (describe below)
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Log / keluaran error
-      description: Tempel keluaran lengkap dari terminal.
+      label: Logs / error output
+      description: Paste the full output from your terminal.
       render: shell
   - type: checkboxes
     id: security
     attributes:
-      label: Kerahasiaan
+      label: Confidentiality
       options:
-        - label: Saya tidak menyertakan kunci privat, kata sandi, atau data sensitif di laporan ini.
+        - label: I have not included private keys, passphrases, or sensitive data in this report.
           required: true
   - type: textarea
     id: context
     attributes:
-      label: Konteks tambahan
-      description: Variabel lingkungan, cara build (vcpkg/distro), dsb.
+      label: Additional context
+      description: Environment variables, build method (vcpkg/distro), etc.

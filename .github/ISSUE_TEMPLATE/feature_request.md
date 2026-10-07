@@ -1,39 +1,39 @@
 ---
-name: Permintaan fitur
-description: Usulkan fitur atau peningkatan baru
-title: "[Fitur] "
+name: Feature request
+description: Suggest a new feature or improvement
+title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Masalah / kebutuhan
-      description: Masalah apa yang ingin Anda pecahkan?
+      label: Problem / need
+      description: What problem are you trying to solve?
     validations:
       required: true
   - type: textarea
     id: solution
     attributes:
-      label: Solusi yang diusulkan
-      description: Bagaimana fitur ini seharusnya bekerja?
+      label: Proposed solution
+      description: How should this feature work?
     validations:
       required: true
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatif yang dipertimbangkan
-      description: Sudah mencoba solusi/workaround lain?
+      label: Alternatives considered
+      description: Any other solutions or workarounds you have tried?
   - type: textarea
     id: crypto
     attributes:
-      label: Pertimbangan kriptografi
+      label: Cryptographic considerations
       description: |
-        Perubahan format, key schedule, atau algoritma harus mengikuti
-        RENCANA.md dan mempertahankan: sign-then-encrypt, header-ke-chunk AAD,
-        forward secrecy, dan kebersihan memori. Jelaskan dampaknya di sini.
+        Format, key schedule, or algorithm changes must follow DEVELOPMENT.md
+        and preserve: sign-then-encrypt, header-as-chunk AAD,
+        forward secrecy, and memory hygiene. Describe the impact here.
   - type: checkboxes
     id: scope
     attributes:
-      label: Cakupan
+      label: Scope
       options:
-        - label: Saya bersedia membantu implementasi (PR).
+        - label: I am willing to help with the implementation (PR).

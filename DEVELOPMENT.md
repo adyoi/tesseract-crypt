@@ -166,13 +166,13 @@ tesseract-crypt pubkey    -k alice.key [-o alice.pub]
 tesseract-crypt encrypt   -r bob.pub [-r carol.pub ...] [-k alice.key] [-i in] [-o out] [--armor]
                           [--chunk-size N] [--no-sign]    # repeated -r → v2 format
 tesseract-crypt encrypt   --passphrase [-i in] [-o out]        # symmetric mode
-tesseract-crypt encrypt   --text "rahasia" -r bob.pub          # string → stdout (armor)
+tesseract-crypt encrypt   --text "secret" -r bob.pub           # string → stdout (armor)
 tesseract-crypt decrypt   -k bob.key [-i in] [-o out]
                           [--require-signer alice.pub] [--passphrase]
 tesseract-crypt rekey     -i in.enc -o out.enc -r new.pub[-r ...] [-k sender.key] [--no-sign]
 tesseract-crypt sign      -k alice.key -i file [-o file.sig]
 tesseract-crypt verify    -k alice.pub -i file -s file.sig
-tesseract-crypt inspect   [-i pesan.enc]                       # read header
+tesseract-crypt inspect   [-i message.enc]                    # read header
 tesseract-crypt info      -k alice.key | -k alice.pub          # fingerprint
 tesseract-crypt version | help
 ```

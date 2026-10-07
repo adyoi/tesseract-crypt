@@ -33,7 +33,7 @@ and multi-recipient format v2.
 
 %files
 %license LICENSE
-%doc README.md README.en.md CHANGELOG.md SECURITY.md
+%doc README.md CHANGELOG.md SECURITY.md
 %{_bindir}/tesseract-crypt
 %{_bindir}/tscrypt
 %{_mandir}/man1/tesseract-crypt.1*
