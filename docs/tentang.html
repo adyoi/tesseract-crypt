@@ -134,19 +134,19 @@
         </tr>
         <tr>
           <td>Public-key</td>
-          <td>✅</td>
-          <td>✅</td>
-          <td>✅</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK</td>
           <td>❌</td>
-          <td>✅</td>
+          <td>OK</td>
           <td>❌ (password only)</td>
           <td>❌</td>
         </tr>
         <tr>
           <td>Signing + pinning</td>
-          <td>✅ built-in (<code>--require-signer</code>)</td>
+          <td>OK built-in (<code>--require-signer</code>)</td>
           <td>❌ (needs minisign separately)</td>
-          <td>✅ (but complex)</td>
+          <td>OK (but complex)</td>
           <td>❌</td>
           <td>❌</td>
           <td>❌</td>
@@ -154,13 +154,13 @@
         </tr>
         <tr>
           <td>Large-file streaming</td>
-          <td>✅ 64 KiB chunks, constant memory</td>
-          <td>✅</td>
-          <td>✅</td>
-          <td>✅</td>
-          <td>✅ (secrets/config)</td>
+          <td>OK 64 KiB chunks, constant memory</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK (secrets/config)</td>
           <td>❌ max 512 MiB</td>
-          <td>✅ volumes</td>
+          <td>OK volumes</td>
         </tr>
         <tr>
           <td>Passphrase KDF</td>
@@ -174,19 +174,19 @@
         </tr>
         <tr>
           <td>Per-chunk tamper detection</td>
-          <td>✅ header as AAD</td>
-          <td>✅ per-chunk AEAD</td>
+          <td>OK header as AAD</td>
+          <td>OK per-chunk AEAD</td>
           <td>partial</td>
           <td>❌ (many modes without MAC)</td>
           <td>n/a</td>
-          <td>✅ HMAC</td>
+          <td>OK HMAC</td>
           <td>n/a</td>
         </tr>
         <tr>
           <td>Text armor</td>
-          <td>✅</td>
-          <td>✅ (bech32 identity)</td>
-          <td>✅ ASCII-armor</td>
+          <td>OK</td>
+          <td>OK (bech32 identity)</td>
+          <td>OK ASCII-armor</td>
           <td>⧉ <code>-a</code> base64</td>
           <td>n/a</td>
           <td>❌</td>
@@ -194,9 +194,9 @@
         </tr>
         <tr>
           <td>Passphrase-locked keys</td>
-          <td>✅ TSK2</td>
-          <td>✅ encrypted identity</td>
-          <td>✅</td>
+          <td>OK TSK2</td>
+          <td>OK encrypted identity</td>
+          <td>OK</td>
           <td>n/a</td>
           <td>n/a</td>
           <td>n/a</td>
