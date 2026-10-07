@@ -1,0 +1,28 @@
+# Maintainer: Tesseract Crypt maintainers
+pkgname=tesseract-crypt
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='String & file encryption with public/private keys (X25519 hybrid + Ed25519 sign)'
+arch=('x86_64' 'aarch64')
+url='https://github.com/adyoi/tesseract-crypt'
+license=('MIT')
+depends=('libsodium')
+makedepends=('cmake' 'ninja' 'gcc')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/adyoi/tesseract-crypt/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cmake -S "${pkgname}-${pkgver}" -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DTESS_WARNINGS_AS_ERRORS=ON
+  cmake --build build --parallel
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package() {
+  DESTDIR="${pkgdir}" cmake --install build
+}

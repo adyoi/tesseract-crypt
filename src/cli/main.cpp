@@ -270,6 +270,11 @@ int cmd_help() {
         "                   [--require-signer SIGNER.pub] [--passphrase]\n"
         "      Decrypt a message.  Armored input is auto-detected.\n"
         "\n"
+        "  tesseract-crypt rekey    -k OLD_KEY | --old-passphrase PASS [-i IN] [-o OUT]\n"
+        "                   -r RECIPIENT.pub [-r MORE.pub ...] [-s SENDER.key]\n"
+        "                   [--require-signer SIGNER.pub] [--chunk-size N] [--no-sign]\n"
+        "      Re-encrypt a message for new recipients/sender (key rotation).\n"
+        "\n"
         "  tesseract-crypt sign     -k KEY [-i FILE] [-o FILE.sig]\n"
         "  tesseract-crypt verify   -k PUBKEY -i FILE -s FILE.sig\n"
         "\n"
@@ -638,6 +643,176 @@ cleanup:
     return rc;
 }
 
+int cmd_rekey(const parser &p) {
+    tess_rekey_options ro;
+    tess_rekey_options_init(&ro);
+
+    std::string old_key = p.get("-k");
+    std::string old_pass = p.get("--old-passphrase");
+    std::string signer_path = p.get("--require-signer");
+    std::vector<std::string> rec_paths = p.get_all("-r");
+    std::vector<tess_key *> rec_pubs;
+    std::vector<const tess_key *> rec_view;
+    std::string sender_path = p.get("-s");
+    bool do_sign = !p.has("--no-sign");
+
+    tess_key *old_sec = nullptr;
+    tess_key *req_signer = nullptr;
+    tess_key *sender = nullptr;
+    tess_status st;
+    int rc = EXIT_OK;
+    uint32_t chunk = 0;
+
+    if (old_key.empty() && old_pass.empty()) {
+        old_pass = getpass("Old passphrase: ");
+        if (old_pass.empty()) {
+            std::cerr << "tesseract-crypt rekey: empty old passphrase\n";
+            return EXIT_USAGE;
+        }
+        ro.old_passphrase = old_pass.c_str();
+    } else if (!old_key.empty()) {
+        st = load_key(old_key, std::string(), true, &old_sec);
+        if (st != TESS_OK) {
+            fail(st, "loading " + old_key);
+            return exit_for(st);
+        }
+        if (tess_key_is_locked(old_sec)) {
+            std::string entered = getpass(("Passphrase for " + old_key + ": ").c_str());
+            st = tess_key_unlock(old_sec, entered.c_str());
+            if (st != TESS_OK) {
+                fail(st, "unlocking " + old_key);
+                tess_key_free(old_sec);
+                return exit_for(st);
+            }
+        }
+        ro.old_recipient_secret = old_sec;
+    } else {
+        ro.old_passphrase = old_pass.c_str();
+    }
+
+    if (!signer_path.empty()) {
+        st = tess_key_load(signer_path.c_str(), nullptr, &req_signer);
+        if (st != TESS_OK) {
+            fail(st, "loading " + signer_path);
+            rc = exit_for(st);
+            goto rcleanup;
+        }
+        ro.old_required_signer = req_signer;
+    }
+
+    if (rec_paths.empty()) {
+        std::cerr << "tesseract-crypt rekey: need -r RECIPIENT.pub (new recipients)\n";
+        rc = EXIT_USAGE;
+        goto rcleanup;
+    }
+    for (const auto &rp : rec_paths) {
+        tess_key *k = nullptr;
+        st = tess_key_load(rp.c_str(), nullptr, &k);
+        if (st != TESS_OK) {
+            fail(st, "loading " + rp);
+            for (auto kk : rec_pubs) tess_key_free(kk);
+            rc = exit_for(st);
+            goto rcleanup;
+        }
+        rec_pubs.push_back(k);
+    }
+    rec_view.reserve(rec_pubs.size());
+    for (auto k : rec_pubs) rec_view.push_back(k);
+    if (rec_pubs.size() == 1) {
+        ro.recipient_public = rec_pubs[0];
+    } else {
+        ro.recipients = rec_view.data();
+        ro.recipient_count = rec_view.size();
+    }
+
+    if (!sender_path.empty()) {
+        st = load_key(sender_path, std::string(), true, &sender);
+        if (st != TESS_OK) {
+            fail(st, "loading " + sender_path);
+            rc = exit_for(st);
+            goto rcleanup;
+        }
+        if (tess_key_is_locked(sender)) {
+            fail(TESS_ERR_PASSPHRASE, "sender key is locked");
+            rc = EXIT_AUTH;
+            goto rcleanup;
+        }
+        ro.sender_secret = sender;
+    }
+    ro.sign = do_sign ? 1 : 0;
+    if (p.get_u32("--chunk-size", chunk)) ro.chunk_size = chunk;
+    else if (p.has("--chunk-size")) {
+        std::cerr << "tesseract-crypt rekey: invalid --chunk-size\n";
+        rc = EXIT_USAGE;
+        goto rcleanup;
+    }
+
+    {
+        std::string in_path = p.get("-i", "-");
+        std::string out_path = p.get("-o", "-");
+        bool in_file = (in_path != "-");
+        bool out_file = (out_path != "-");
+
+        if (in_file && out_file) {
+            tess_rekey_file_options rfo;
+            tess_rekey_file_options_init(&rfo);
+            rfo.old_recipient_secret = old_sec;
+            rfo.old_passphrase = (old_pass.empty() ? nullptr : old_pass.c_str());
+            rfo.old_required_signer = req_signer;
+            rfo.recipient_public = ro.recipient_public;
+            rfo.recipients = ro.recipients;
+            rfo.recipient_count = ro.recipient_count;
+            rfo.sender_secret = sender;
+            rfo.sign = ro.sign;
+            rfo.chunk_size = ro.chunk_size;
+            st = tess_rekey_file(in_path.c_str(), out_path.c_str(), &rfo);
+            if (st != TESS_OK) {
+                fail(st, "rekey " + in_path);
+                remove_part(out_path);
+                rc = exit_for(st);
+            }
+        } else {
+            std::string data;
+            if (!read_input(in_path, data)) {
+                rc = EXIT_FAIL;
+                goto rcleanup;
+            }
+            if (tess_is_armored(reinterpret_cast<const uint8_t *>(data.data()),
+                                data.size())) {
+                uint8_t *raw = nullptr;
+                size_t raw_len = 0;
+                st = tess_dearmor(data.c_str(), &raw, &raw_len);
+                if (st != TESS_OK) {
+                    fail(st, "dearmor");
+                    rc = exit_for(st);
+                    goto rcleanup;
+                }
+                data.assign(reinterpret_cast<const char *>(raw), raw_len);
+                tess_free(raw);
+            }
+            uint8_t *out = nullptr;
+            size_t out_len = 0;
+            st = tess_rekey(reinterpret_cast<const uint8_t *>(data.data()),
+                            data.size(), &ro, &out, &out_len);
+            if (st != TESS_OK) {
+                fail(st, "rekey");
+                rc = exit_for(st);
+                goto rcleanup;
+            }
+            std::string res(reinterpret_cast<const char *>(out), out_len);
+            tess_free(out);
+            if (!write_output(out_path, res)) rc = EXIT_FAIL;
+        }
+    }
+
+rcleanup:
+    for (auto k : rec_pubs) tess_key_free(k);
+    tess_key_free(old_sec);
+    tess_key_free(req_signer);
+    tess_key_free(sender);
+    return rc;
+}
+
 int cmd_decrypt(const parser &p) {
     tess_open_options oo;
     tess_open_options_init(&oo);
@@ -995,6 +1170,7 @@ int main(int argc, char **argv) {
     if (cmd == "pubkey") return cmd_pubkey(p);
     if (cmd == "encrypt") return cmd_encrypt(p);
     if (cmd == "decrypt") return cmd_decrypt(p);
+    if (cmd == "rekey" || cmd == "--rekey" || cmd == "rotate") return cmd_rekey(p);
     if (cmd == "sign") return cmd_sign(p);
     if (cmd == "verify") return cmd_verify(p);
     if (cmd == "inspect") return cmd_inspect(p);

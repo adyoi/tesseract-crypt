@@ -16,6 +16,14 @@ void tess_open_options_init(tess_open_options *o) {
     if (o) memset(o, 0, sizeof *o);
 }
 
+void tess_rekey_options_init(tess_rekey_options *o) {
+    if (o) memset(o, 0, sizeof *o);
+}
+
+void tess_rekey_file_options_init(tess_rekey_file_options *o) {
+    if (o) memset(o, 0, sizeof *o);
+}
+
 void tess_seal_file_options_init(tess_seal_file_options *o) {
     if (o) memset(o, 0, sizeof *o);
 }
@@ -195,6 +203,15 @@ static uint32_t pick_chunk(uint32_t requested) {
 /* on-wire size of the recipient segment (0 unless multi-recipient v2).
  * Returns 0 for invalid counts; seal_prepare() rejects those inputs. */
 static size_t seal_blocks_len(const tess_seal_options *opt) {
+    if (opt == NULL || opt->recipients == NULL) return 0;
+    if (opt->recipient_count == 0 ||
+        opt->recipient_count > TESS_MAX_RECIPIENTS) {
+        return 0;
+    }
+    return (size_t)opt->recipient_count * TESS_RECIPIENT_BLOCK_BYTES;
+}
+
+static size_t rekey_blocks_len(const tess_rekey_options *opt) {
     if (opt == NULL || opt->recipients == NULL) return 0;
     if (opt->recipient_count == 0 ||
         opt->recipient_count > TESS_MAX_RECIPIENTS) {
@@ -1218,6 +1235,91 @@ out:
     free(ct);
     if (in) fclose(in);
     return rc;
+}
+
+/* ------------------------------------------------------------------ */
+/* rekey — decrypt and re-encrypt to new recipients                  */
+/* ------------------------------------------------------------------ */
+
+tess_status tess_rekey(const uint8_t *ct, size_t ct_len,
+                       const tess_rekey_options *opt, uint8_t **out,
+                       size_t *out_len) {
+    tess_open_options oo;
+    tess_seal_options so;
+    uint8_t *pt = NULL;
+    size_t pt_len = 0;
+    tess_status rc;
+
+    if (ct == NULL || opt == NULL || out == NULL || out_len == NULL) {
+        return TESS_ERR_INVALID_ARG;
+    }
+
+    tess_open_options_init(&oo);
+    oo.recipient_secret = opt->old_recipient_secret;
+    oo.passphrase = opt->old_passphrase;
+    oo.required_signer = opt->old_required_signer;
+    rc = tess_open(ct, ct_len, &oo, &pt, &pt_len);
+    if (rc != TESS_OK) return rc;
+
+    tess_seal_options_init(&so);
+    so.recipient_public = opt->recipient_public;
+    so.recipients = opt->recipients;
+    so.recipient_count = opt->recipient_count;
+    so.sender_secret = opt->sender_secret;
+    so.sign = opt->sign;
+    so.chunk_size = opt->chunk_size;
+    rc = tess_seal(pt, pt_len, &so, out, out_len);
+    sodium_memzero(pt, pt_len);
+    free(pt);
+    return rc;
+}
+
+tess_status tess_rekey_file(const char *in_path, const char *out_path,
+                            const tess_rekey_file_options *opt) {
+    tess_open_file_options oo;
+    tess_seal_file_options so;
+    uint8_t *pt = NULL;
+    size_t pt_len = 0;
+    tess_status rc;
+
+    if (in_path == NULL || out_path == NULL || opt == NULL) {
+        return TESS_ERR_INVALID_ARG;
+    }
+
+    rc = tess_alloc(1, (void **)&pt); /* dummy to keep logic clean */
+    free(pt);
+    pt = NULL;
+
+    /* For streaming files, it's better to stream - but current API is buffered semantics
+       via open_file + write temporary? Easier: read decrypted via open_file to temp? */
+    {
+        char tmp[4096];
+        if (snprintf(tmp, sizeof tmp, "%s.tess-rekey.tmp", out_path) >= (int)sizeof tmp) {
+            return TESS_ERR_INVALID_ARG;
+        }
+        tess_open_file_options_init(&oo);
+        oo.recipient_secret = opt->old_recipient_secret;
+        oo.passphrase = opt->old_passphrase;
+        oo.required_signer = opt->old_required_signer;
+        rc = tess_open_file(in_path, tmp, &oo);
+        if (rc != TESS_OK) {
+            remove(tmp);
+            return rc;
+        }
+        tess_seal_file_options_init(&so);
+        so.recipient_public = opt->recipient_public;
+        so.recipients = opt->recipients;
+        so.recipient_count = opt->recipient_count;
+        so.sender_secret = opt->sender_secret;
+        so.sign = opt->sign;
+        so.chunk_size = opt->chunk_size;
+        rc = tess_seal_file(tmp, out_path, &so);
+        remove(tmp);
+        if (rc != TESS_OK) {
+            remove_part(out_path);
+        }
+        return rc;
+    }
 }
 
 /* ------------------------------------------------------------------ */

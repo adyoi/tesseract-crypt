@@ -123,7 +123,7 @@ jobs:
           ./build/tscrypt version
 
   fuzz:
-    name: Fuzz (libFuzzer · 60 dtk/target)
+    name: Fuzz (libFuzzer · 60 s/target)
     runs-on: ubuntu-latest
     env:
       CC: clang
@@ -148,8 +148,46 @@ jobs:
       - name: Build
         run: cmake --build build --parallel
 
-      - name: Fuzz smoke (60 detik per target)
+      - name: Fuzz smoke (60 seconds per target)
         run: |
           ./build/fuzz_inspect   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_dearmor   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_key_parse -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
+
+  coverage:
+    name: Coverage (gcc · lcov)
+    runs-on: ubuntu-latest
+    env:
+      CC: gcc
+      CXX: g++
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev lcov
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DTESS_COVERAGE=ON
+          -DTESS_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Generate coverage
+        run: |
+          lcov --capture --directory build --output-file coverage.info
+          lcov --remove coverage.info '*/tests/*' '*/fuzz/*' '/usr/*' --output-file coverage-filtered.info
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage-filtered.info
+          fail_ci_if_error: false

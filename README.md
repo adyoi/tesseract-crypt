@@ -24,6 +24,7 @@ passphrase.
 | **Streaming chunked** | 64 KiB per chunk, subkey per-chunk (`crypto_kdf`), memori konstan, deteksi reorder/truncation |
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` untuk stdout & teks |
 | **Multi-penerima (v2)** | Satu pesan untuk banyak penerima: data key acak dibungkus per penerima (format v2) |
+| **Rekey / rotasi kunci** | `tesseract-crypt rekey` untuk rewrap pesan ke penerima/pengirim baru tanpa mengubah payload ciphertext | 
 | **Atomic output** | File ditulis ke `.part`, di-rename hanya setelah dekripsi & verifikasi sukses |
 
 ## Install (APT — Debian/Ubuntu amd64)
@@ -89,7 +90,11 @@ tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
 # 5. Mode passphrase (tanpa kunci publik)
 tesseract-crypt encrypt --passphrase -i catatan.txt -o catatan.enc
 
-# 6. Inspeksi header pesan
+# 6. Rekey pesan ke penerima baru
+tesseract-crypt keygen -o charlie
+tesseract-crypt rekey -k bob.key -i rahasia.enc -o rahasia.rekey -r charlie.pub --require-signer alice.pub
+
+# 7. Inspeksi header pesan
 tesseract-crypt inspect -i rahasia.enc
 tesseract-crypt info -k alice.key
 ```

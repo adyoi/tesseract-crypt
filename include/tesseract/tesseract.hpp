@@ -249,6 +249,35 @@ inline tess_message_info inspect(const bytes &message) {
     return info;
 }
 
+inline bytes rekey(const bytes &message, const key *old_recipient = nullptr,
+                   const std::string &old_passphrase = {},
+                   const key *old_required_signer = nullptr,
+                   const std::vector<const key *> &recipients = {},
+                   const key *sender = nullptr, bool sign = false,
+                   uint32_t chunk_size = 0) {
+    tess_rekey_options o;
+    tess_rekey_options_init(&o);
+    o.old_recipient_secret = old_recipient ? old_recipient->get() : nullptr;
+    o.old_passphrase = old_passphrase.empty() ? nullptr : old_passphrase.c_str();
+    o.old_required_signer = old_required_signer ? old_required_signer->get() : nullptr;
+    std::vector<const tess_key *> raw;
+    raw.reserve(recipients.size());
+    for (const key *k : recipients) raw.push_back(k ? k->get() : nullptr);
+    if (!recipients.empty()) {
+        o.recipients = raw.data();
+        o.recipient_count = raw.size();
+    }
+    o.sender_secret = sender ? sender->get() : nullptr;
+    o.sign = sign ? 1 : 0;
+    o.chunk_size = chunk_size;
+    uint8_t *out = nullptr;
+    size_t out_len = 0;
+    check(tess_rekey(message.data(), message.size(), &o, &out, &out_len));
+    bytes result(out, out + out_len);
+    tess_free(out);
+    return result;
+}
+
 /* ------------------------------------------------------------------ */
 /* sign / verify                                                       */
 /* ------------------------------------------------------------------ */

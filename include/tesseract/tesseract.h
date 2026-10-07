@@ -78,69 +78,30 @@ typedef struct tess_message_info {
 /* Status / version                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Human readable message for a status code (never NULL). */
 const char *tess_strerror(tess_status st);
-
-/** Library version string, e.g. "0.1.0". */
 const char *tess_version(void);
 
 /* ------------------------------------------------------------------ */
 /* Keys                                                                */
 /* ------------------------------------------------------------------ */
 
-/**
- * Generate a fresh keypair (X25519 for encryption + Ed25519 for signing).
- * On success *secret and *public_key are set; free both with tess_key_free().
- */
 tess_status tess_keygen(tess_key **secret, tess_key **public_key);
-
-/**
- * Generate a keypair whose secret material is immediately locked with
- * Argon2id(passphrase, ...).  The resulting secret key can only be saved
- * (tess_key_save) or used after tess_key_unlock() succeeds.
- * ops = 0 / mem = 0 select the library defaults (moderate).
- */
 tess_status tess_keygen_locked(const char *passphrase, uint32_t ops,
                                uint64_t mem_bytes, tess_key **secret,
                                tess_key **public_key);
-
-/** Unlock a locked private key in memory (no-op if already unlocked). */
 tess_status tess_key_unlock(tess_key *key, const char *passphrase);
-
-/** Lock an unlocked private key in memory with a passphrase. */
 tess_status tess_key_lock(tess_key *key, const char *passphrase,
                           uint32_t ops, uint64_t mem_bytes);
-
-/** Zero and free a key object (NULL tolerated). */
 void tess_key_free(tess_key *key);
-
-/** Extract the public part of a key (works for secret and public keys). */
 tess_status tess_key_get_public(const tess_key *key, tess_key **public_key);
-
-/** 1 if this key carries private material, 0 otherwise. */
 int tess_key_is_secret(const tess_key *key);
-
-/** 1 if this key's private material is locked with a passphrase. */
 int tess_key_is_locked(const tess_key *key);
-
-/** Save key as an armored key file (private or public depending on key). */
 tess_status tess_key_save(const tess_key *key, const char *path);
-
-/** Load a key file.  passphrase may be NULL for unlocked keys. */
 tess_status tess_key_load(const char *path, const char *passphrase,
                           tess_key **key);
-
-/** Encode key into an allocated armored string (caller frees with tess_free). */
 tess_status tess_key_serialize(const tess_key *key, char **armored);
-
-/** Parse an armored key string (passphrase may be NULL). */
 tess_status tess_key_parse(const char *armored, const char *passphrase,
                            tess_key **key);
-
-/**
- * BLAKE2b-128 fingerprint of the public key as lowercase hex
- * (TESS_FINGERPRINT_HEX chars + NUL).  Works on secret keys too.
- */
 tess_status tess_key_fingerprint(const tess_key *key,
                                  char out_hex[TESS_FINGERPRINT_HEX + 1]);
 
@@ -148,43 +109,58 @@ tess_status tess_key_fingerprint(const tess_key *key,
 /* Seal / open — in-memory buffers                                     */
 /* ------------------------------------------------------------------ */
 
+typedef enum tess_key_provider_type {
+    TESS_KP_PUB = 0,
+    TESS_KP_SEC = 1
+} tess_key_provider_type;
+
+typedef tess_status (*tess_key_provider)(const char *id, tess_key_provider_type t,
+                                        tess_key **out_key, void *ctx);
+
 typedef struct tess_seal_options {
-    const tess_key *recipient_public; /* single recipient (format v1)      */
-    const tess_key *const *recipients; /* multi-recipient keys (format v2) */
-    size_t recipient_count;           /* ignored when recipients == NULL   */
-    const tess_key *sender_secret;    /* NULL => anonymous, unsigned      */
-    int sign;                         /* sign plaintext? (needs sender)   */
-    const char *passphrase;           /* used iff no recipients given     */
-    uint32_t chunk_size;              /* 0 => TESS_DEFAULT_CHUNK          */
+    const tess_key *recipient_public;
+    const char *recipient_public_id;
+    const tess_key *const *recipients;
+    const char *const *recipient_ids;
+    size_t recipient_count;
+    const tess_key *sender_secret;
+    const char *sender_id;
+    int sign;
+    const char *passphrase;
+    uint32_t chunk_size;
+    tess_key_provider key_provider;
+    void *key_provider_ctx;
 } tess_seal_options;
 
 typedef struct tess_open_options {
-    const tess_key *recipient_secret; /* NULL => passphrase mode          */
-    const char *passphrase;           /* used iff recipient_secret == NULL */
-    const tess_key *required_signer;  /* NULL => accept any signer         */
-    int *out_signed;                  /* optional: 1 if msg was signed     */
-    uint8_t out_signer_pk[32];        /* optional: signer Ed25519 pk       */
+    const tess_key *recipient_secret;
+    const char *recipient_id;
+    const char *passphrase;
+    const tess_key *required_signer;
+    const char *required_signer_id;
+    int *out_signed;
+    uint8_t out_signer_pk[32];
+    tess_key_provider key_provider;
+    void *key_provider_ctx;
 } tess_open_options;
 
-/** Fill options with defaults (all NULL/0). */
 void tess_seal_options_init(tess_seal_options *o);
 void tess_open_options_init(tess_open_options *o);
 
-/**
- * Encrypt pt[0..pt_len] into a freshly allocated ciphertext buffer
- * (*out is allocated with malloc; release with tess_free()).
- */
 tess_status tess_seal(const uint8_t *pt, size_t pt_len,
-                      const tess_seal_options *opt, uint8_t **out,
-                      size_t *out_len);
-
-/**
- * Decrypt a ciphertext produced by tess_seal().  On success *out holds the
- * plaintext (release with tess_free()).
- */
+                       const tess_seal_options *opt, uint8_t **out,
+                       size_t *out_len);
 tess_status tess_open(const uint8_t *ct, size_t ct_len,
-                      const tess_open_options *opt, uint8_t **out,
-                      size_t *out_len);
+                       const tess_open_options *opt, uint8_t **out,
+                       size_t *out_len);
+tess_status tess_rekey(const uint8_t *ct, size_t ct_len,
+                       const tess_open_options *open_opt,
+                       const tess_seal_options *rekey_opt,
+                       uint8_t **out, size_t *out_len);
+tess_status tess_rekey_buf(const uint8_t *ct, size_t ct_len,
+                           const tess_open_options *open_opt,
+                           const tess_seal_options *rekey_opt,
+                           uint8_t **out, size_t *out_len);
 
 /* ------------------------------------------------------------------ */
 /* Seal / open — files (constant memory, atomic output)                */
@@ -192,79 +168,71 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
 
 typedef struct tess_seal_file_options {
     const tess_key *recipient_public;
-    const tess_key *const *recipients; /* multi-recipient (format v2)      */
-    size_t recipient_count;            /* ignored when recipients == NULL  */
+    const char *recipient_public_id;
+    const tess_key *const *recipients;
+    const char *const *recipient_ids;
+    size_t recipient_count;
     const tess_key *sender_secret;
+    const char *sender_id;
     int sign;
     const char *passphrase;
     uint32_t chunk_size;
+    tess_key_provider key_provider;
+    void *key_provider_ctx;
 } tess_seal_file_options;
 
 typedef struct tess_open_file_options {
     const tess_key *recipient_secret;
+    const char *recipient_id;
     const char *passphrase;
     const tess_key *required_signer;
-    int *out_signed; /* optional: set to 1 when the message was signed */
+    const char *required_signer_id;
+    int *out_signed;
+    tess_key_provider key_provider;
+    void *key_provider_ctx;
 } tess_open_file_options;
 
 void tess_seal_file_options_init(tess_seal_file_options *o);
 void tess_open_file_options_init(tess_open_file_options *o);
-
-/**
- * Encrypt file `in_path` into `out_path`.  Output is written to
- * `out_path + ".part"` and atomically renamed on success.
- */
 tess_status tess_seal_file(const char *in_path, const char *out_path,
-                           const tess_seal_file_options *opt);
-
-/**
- * Decrypt file `in_path` into `out_path`.  The plaintext is written to a
- * `.part` file and only renamed to `out_path` after the signature (if any)
- * has verified — unauthenticated data never appears at the final path.
- */
+                            const tess_seal_file_options *opt);
 tess_status tess_open_file(const char *in_path, const char *out_path,
-                           const tess_open_file_options *opt);
+                            const tess_open_file_options *opt);
 
 /* ------------------------------------------------------------------ */
 /* Detached signatures (Ed25519ph, streaming)                          */
 /* ------------------------------------------------------------------ */
 
 tess_status tess_sign(const uint8_t *msg, size_t msg_len, const tess_key *secret,
-                      uint8_t sig[TESS_SIGNATURE_BYTES]);
-
+                       uint8_t sig[TESS_SIGNATURE_BYTES]);
 tess_status tess_verify(const uint8_t *msg, size_t msg_len,
-                        const tess_key *public_key,
-                        const uint8_t sig[TESS_SIGNATURE_BYTES]);
-
+                         const tess_key *public_key,
+                         const uint8_t sig[TESS_SIGNATURE_BYTES]);
 tess_status tess_sign_file(const char *path, const tess_key *secret,
-                           uint8_t sig[TESS_SIGNATURE_BYTES]);
-
+                            uint8_t sig[TESS_SIGNATURE_BYTES]);
 tess_status tess_verify_file(const char *path, const tess_key *public_key,
-                             const uint8_t sig[TESS_SIGNATURE_BYTES]);
+                              const uint8_t sig[TESS_SIGNATURE_BYTES]);
 
 /* ------------------------------------------------------------------ */
 /* Armor (PEM-like base64 wrapper)                                     */
 /* ------------------------------------------------------------------ */
 
-/** Allocate an armored encoding of in[0..len] with the given label. */
 tess_status tess_armor(const uint8_t *in, size_t len, const char *label,
-                       char **out);
-
-/** Decode an armored block back to binary (label is not checked strictly). */
+                        char **out);
 tess_status tess_dearmor(const char *text, uint8_t **out, size_t *out_len);
-
-/** 1 if the buffer looks like an armored Tesseract message. */
 int tess_is_armored(const uint8_t *data, size_t len);
 
 /* ------------------------------------------------------------------ */
 /* Inspection                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Parse (and validate) the 264-byte header at the start of a message. */
 tess_status tess_inspect(const uint8_t *data, size_t len,
-                         tess_message_info *info);
+                          tess_message_info *info);
 
-/** Free memory returned by the library (tess_seal, tess_armor, ...). */
+/* ------------------------------------------------------------------ */
+/* Memory                                                              */
+/* ------------------------------------------------------------------ */
+
 void tess_free(void *ptr);
 
 #ifdef __cplusplus

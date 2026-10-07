@@ -23,6 +23,7 @@ passphrase mode.
 | **Streaming chunked** | 64 KiB per chunk, per-chunk subkey (`crypto_kdf`), constant memory, reorder/truncation detection |
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` for stdout & text |
 | **Multi-recipient (v2)** | One message for many recipients: a random data key wrapped per recipient (format v2) |
+| **Rekey / key rotation** | `tesseract-crypt rekey` to rewrap an existing message for new recipients/sender without touching the ciphertext payload | 
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
 
 ## Install (APT — Debian/Ubuntu amd64)
@@ -87,6 +88,10 @@ tesseract-crypt encrypt --text "Hello world" -r bob.pub
 
 # 5. passphrase mode (no public key needed)
 tesseract-crypt encrypt --passphrase -i note.txt -o note.enc
+
+# 6. rekey a message for new recipients
+tesseract-crypt keygen -o charlie
+tesseract-crypt rekey -k bob.key -i secret.enc -o secret.rekey -r charlie.pub --require-signer alice.pub
 
 # 6. inspect the message header
 tesseract-crypt inspect -i secret.enc

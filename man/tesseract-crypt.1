@@ -75,10 +75,14 @@ Menandatangani berkas (tanda tangan detached, Ed25519ph).
 \fB\-k\fR \fIPUBKEY\fR \fB\-i\fR \fIFILE\fR \fB\-s\fR \fIFILE.sig\fR
 Memverifikasi tanda tangan detached.
 .TP
+.B rekey
+\fB\-k\fR \fIOLD_KEY\fR \fR|\fR \fB\-\-old-passphrase\fR \fIPASS\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] \fB\-r\fR \fIRECIPIENT.pub\fR [\fB\-r\fR \fIMORE.pub\fR ...] [\fB\-s\fR \fISENDER.key\fR] [\fB\-\-require-signer\fR \fISIGNER.pub\fR] [\fB\-\-chunk-size\fR \fIN\fR] [\fB\-\-no-sign\fR]
+Mendekripsi ulang pesan ke penerima baru (key rotation), dapat mengganti pengirim dan memverifikasi signer lama.
+.TP
 .B inspect
 [\fB\-i\fR \fIFILE\fR]
 Membaca header pesan (versi, mode, ukuran chunk, panjang plaintext,
-fingerprint penanda tangan) tanpa mendekripsi.
+jumlah penerima, dan status tanda tangan) tanpa mendekripsi.
 .TP
 .B info
 \fB\-k\fR \fIKEYFILE\fR
@@ -122,14 +126,16 @@ Penggunaan salah: argumen tak dikenal atau tidak lengkap (sebagian kesalahan
 validasi argumen juga memetakan ke sini).
 .TP
 .B 3
-Otentikasi gagal: AEAD, tanda tangan, signer wajib, atau kata sandi salah.
+Otentikasi gagal: AEAD, tanda tangan, signer wajib, penerima tidak sesuai, atau kata sandi salah.
 Tidak ada berkas output yang ditulis.
 .SH CONTOH
 .nf
 tesseract-crypt keygen -o alice --passphrase
+tesseract-crypt keygen -o bob
 tesseract-crypt encrypt -r bob.pub -k alice.key -i rahasia.txt -o rahasia.enc
 tesseract-crypt decrypt -k bob.key -i rahasia.enc -o rahasia.out --require-signer alice.pub
 tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
+tesseract-crypt rekey -k bob.key -i rahasia.enc -o rahasia.rekey -r charlie.pub
 .f
 .PP
 Pada semua contoh di atas, awalan
@@ -148,6 +154,10 @@ atau
 .B NAME.pub
 Kunci publik TSKp (68 byte); armor label
 .BR "TESSERACT PUBLIC KEY" .
+.SH KETERSEDIAAN
+Dibangun dan diuji lintas platform: Windows, Linux, macOS, BSD/Unix-like.
+Alias \fBtscrypt\fR tersedia di semua platform (di Windows dengan akhiran
+\fB.exe\fR otomatis).
 .SH KEAMANAN
 Kunci pribadi di-\fBsodium_mlock\fR saat dimuat dan di-\fBsodium_memzero\fR
 setelah digunakan. Header 264 byte menjadi AAD setiap chunk, sehingga
@@ -155,7 +165,8 @@ truncation, reorder, dan splice terdeteksi secara kriptografis. Parameter
 Argon2id dari header tak tepercaya dibatasi (maksimum 16 ops dan 4 GiB)
 untuk mencegah penyalahgunaan memori. RNG bawaan libsodium
 (\fBrandombytes_buf\fR) selalu dipakai \-\- kode ini tidak pernah memakai
-RNG sendiri.
+RNG sendiri. Penggantian berkas atomik menggunakan rename; di Windows
+menggunakan \fBMoveFileExA\fR untuk menimpa berkas tujuan.
 .sp
 Lihat RENCANA.md dan docs/format.html untuk spesifikasi lengkap,
 dan SECURITY.md untuk cara melaporkan kerentanan.

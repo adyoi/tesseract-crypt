@@ -11,6 +11,7 @@ project(tesseract-crypt
 option(TESS_BUILD_CLI "Build the tesseract-crypt command line tool" ON)
 option(TESS_BUILD_TESTS "Build the test suite" ON)
 option(TESS_SANITIZE "Enable AddressSanitizer + UBSan" OFF)
+option(TESS_COVERAGE "Enable code coverage instrumentation (gcov/lcov)" OFF)
 option(TESS_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
 option(TESS_FUZZ "Build libFuzzer harnesses (Clang only)" OFF)
 
@@ -54,6 +55,10 @@ if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
         add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)
         add_link_options(-fsanitize=address,undefined)
     endif()
+    if(TESS_COVERAGE)
+        add_compile_options(--coverage -O0 -g)
+        add_link_options(--coverage)
+    endif()
 elseif(MSVC)
     add_compile_options(/W4)
     if(TESS_WARNINGS_AS_ERRORS)
@@ -86,6 +91,10 @@ add_library(tesseract_crypt
     src/core/tess_keys.c
     src/core/tess_sign.c
     src/core/tess_seal.c
+    src/core/tess_rekey.c
+    src/core/tess_file.c
+    src/core/tess_armor.c
+    src/core/tess_inspect.c
 )
 add_library(tesseract::crypt ALIAS tesseract_crypt)
 
@@ -139,7 +148,7 @@ endif()
 if(TESS_BUILD_TESTS)
     enable_testing()
 
-    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi)
+    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi rekey)
     foreach(t ${TESS_TESTS})
         add_executable(test_${t} tests/test_${t}.c)
         target_link_libraries(test_${t} PRIVATE tesseract::crypt)
