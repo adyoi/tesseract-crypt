@@ -198,6 +198,11 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
                             const tess_seal_file_options *opt);
 tess_status tess_open_file(const char *in_path, const char *out_path,
                             const tess_open_file_options *opt);
+/** Rekey for files: decrypt `in_path` (open_opt) and re-encrypt to
+ *  `out_path` (rekey_opt).  Atomic; no partial output on failure. */
+tess_status tess_rekey_file(const char *in_path, const char *out_path,
+                            const tess_open_file_options *open_opt,
+                            const tess_seal_file_options *rekey_opt);
 
 /* ------------------------------------------------------------------ */
 /* Detached signatures (Ed25519ph, streaming)                          */

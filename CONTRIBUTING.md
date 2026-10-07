@@ -1,24 +1,24 @@
-# Berkontribusi
+# Contributing
 
-Terima kasih telah melirik proyek ini! Kontribusi disambut baik: perbaikan
-bug, tes, dokumentasi, dan fitur baru — selama tetap sejalan dengan desain di
-[`RENCANA.md`](RENCANA.md).
+Thank you for your interest in this project! Contributions are welcome: bug fixes,
+tests, documentation, and new features — as long as they stay in line with the
+design in [`DEVELOPMENT.md`](DEVELOPMENT.md).
 
-## Lingkup
+## Scope
 
-- **Library inti** (`src/core/`, C11) — API publik stabil di
-  `include/tesseract/tesseract.h`. Semua perubahan kriptografi dan format
-  harus mempertahankan prinsip berikut:
-  - Sign-then-encrypt, header-ke-chunk AAD (anti reorder/splice/truncation),
-  - forward secrecy (ephemeral X25519 per pesan),
-  - kebersihan memori (`sodium_mlock` / `sodium_memzero`),
-  - tidak memakai RNG sendiri; selalu `randombytes_buf`.
-- **CLI** (`src/cli/main.cpp`, C++17) — hanya memanggil API publik. Jangan
-  pindahkan logika kripto ke CLI.
-- **Docs** (`docs/`) — harus sinkron dengan `RENCANA.md` dan kode aktual
-  (offset header, label armor, format berkas kunci).
+- **Core library** (`src/core/`, C11) — stable public API in
+  `include/tesseract/tesseract.h`. All cryptographic changes and format
+  modifications must preserve the following principles:
+  - Sign-then-encrypt, header-to-chunk AAD (anti reorder/splice/truncation),
+  - forward secrecy (ephemeral X25519 per message),
+  - memory hygiene (`sodium_mlock` / `sodium_memzero`),
+  - no custom RNG; always `randombytes_buf`.
+- **CLI** (`src/cli/main.cpp`, C++17) — only calls the public API. Do not
+  move crypto logic into the CLI.
+- **Docs** (`docs/`) — must stay in sync with `DEVELOPMENT.md` and the actual
+  code (header offsets, armor labels, key file formats).
 
-## Menyiapkan lingkungan
+## Setting up the environment
 
 ```bash
 # Debian/Ubuntu
@@ -37,45 +37,43 @@ cmake --build build --config Release -j
 ctest --test-dir build -C Release --output-on-failure
 ```
 
-## Standar
+## Standards
 
-1. **Gaya C/C++**: ikuti konsistensi file sekitar; jalankan
-   `clang-format -i` bila tersedia (konfigurasi di `.clang-format`).
-2. **Peringatan**: build harus bersih di GCC, Clang, dan MSVC
-   (`-DTESS_WARNINGS_AS_ERRORS=ON` dipakai di CI).
-3. **Tes**: setiap perbaikan bug harus disertai tes yang gagal sebelumnya;
-   fitur baru wajib punya tes roundtrip/tamper yang relevan di `tests/`.
-4. **Sanitizer**: pastikan lulus `-DTESS_SANITIZE=ON` sebelum mengirim PR:
+1. **C/C++ style**: follow the surrounding file conventions; run
+   `clang-format -i` if available (config in `.clang-format`).
+2. **Warnings**: build must be clean on GCC, Clang, and MSVC
+   (`-DTESS_WARNINGS_AS_ERRORS=ON` is used in CI).
+3. **Tests**: every bug fix must be accompanied by a test that failed before;
+   new features need relevant roundtrip/tamper tests in `tests/`.
+4. **Sanitizer**: ensure it passes `-DTESS_SANITIZE=ON` before submitting a PR:
    ```bash
    cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DTESS_SANITIZE=ON
    cmake --build build-asan -j && ctest --test-dir build-asan --output-on-failure
    ```
-5. **Dokumentasi**: ubah `RENCANA.md`, `docs/*`, README, dan man page bila
-   perilaku atau format berubah.
+5. **Documentation**: update `DEVELOPMENT.md`, `docs/*`, README, and man pages if
+   behavior or format changes.
 
-## Alur pull request
+## Pull request workflow
 
-1. Fork & buat branch: `git checkout -b fix/deskripsi-singkat`.
-2. Tulis/perbarui tes, jalankan seluruh suite, lalu commit dengan pesan
-   ringkas (lihat `git log` untuk gaya pesan).
-3. Buka PR yang menyebutkan *masalah apa* dan *mengapa*; tempel ringkasan
-   `ctest`.
-4. CI (GCC/Clang, Debug/Release, ASan+UBSan) harus hijau.
+1. Fork & create a branch: `git checkout -b fix/brief-description`.
+2. Write/update tests, run the full suite, then commit with a concise message
+   (see `git log` for message style).
+3. Open a PR that states *what problem* and *why*; paste the `ctest` summary.
+4. CI (GCC/Clang, Debug/Release, ASan+UBSan) must be green.
 
-## Baris teratas yang tidak boleh dilanggar
+## Top-level rules that must not be violated
 
-- Jangan memperkenalkan primitif kripto sendiri; hanya libsodium.
-- Jangan ubah format biner tanpa bump versi header (`version`) dan update
-  `docs/format.html` + `RENCANA.md`.
-- Jangan commit kunci, passphrase, atau materal berkas uji (lihat
-  `.gitignore`).
+- Do not introduce custom cryptographic primitives; use only libsodium.
+- Do not change the binary format without bumping the header `version` and
+  updating `docs/format.html` + `DEVELOPMENT.md`.
+- Do not commit keys, passphrases, or test fixture material (see `.gitignore`).
 
-## Melaporkan kerentanan
+## Reporting vulnerabilities
 
-Jangan buka issue publik untuk kerentanan keamanan. Ikuti petunjuk di
-[`SECURITY.md`](SECURITY.md).
+Do not open a public issue for security vulnerabilities. Follow the
+instructions in [`SECURITY.md`](SECURITY.md).
 
-## Lisensi
+## License
 
-Kontribusi diterima dengan lisensi MIT, sama seperti proyek ini.
-Lihat [`LICENSE`](LICENSE).
+Contributions are accepted under the MIT license, same as the project.
+See [`LICENSE`](LICENSE).

@@ -92,9 +92,6 @@ add_library(tesseract_crypt
     src/core/tess_sign.c
     src/core/tess_seal.c
     src/core/tess_rekey.c
-    src/core/tess_file.c
-    src/core/tess_armor.c
-    src/core/tess_inspect.c
 )
 add_library(tesseract::crypt ALIAS tesseract_crypt)
 

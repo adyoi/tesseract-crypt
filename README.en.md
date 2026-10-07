@@ -93,7 +93,7 @@ tesseract-crypt encrypt --passphrase -i note.txt -o note.enc
 tesseract-crypt keygen -o charlie
 tesseract-crypt rekey -k bob.key -i secret.enc -o secret.rekey -r charlie.pub --require-signer alice.pub
 
-# 6. inspect the message header
+# 7. inspect the message header
 tesseract-crypt inspect -i secret.enc
 tesseract-crypt info -k alice.key
 ```
@@ -129,8 +129,20 @@ A header-only C++17 wrapper is available in `<tesseract/tesseract.hpp>`
 - [CLI reference](https://adyoi.github.io/tesseract-crypt/cli.html)
 - [Format specification](https://adyoi.github.io/tesseract-crypt/format.html)
 - [About & comparison](https://adyoi.github.io/tesseract-crypt/tentang.html)
+- [Audit readiness](docs/audit-readiness.md) — checklist for security auditors
+- [Code coverage](docs/coverage.md) — gcov/lcov workflow
 
 Indonesian versions live under [adyoi.github.io/tesseract-crypt/id/](https://adyoi.github.io/tesseract-crypt/id/).
+
+## Platform support
+
+- **Windows** (MSVC, vcpkg), **Linux** (GCC/Clang), **macOS** (AppleClang),
+  **BSD/Unix-like** — same CLI and file formats everywhere.
+- Atomic output uses `rename()`; on Windows it is `MoveFileExA` with
+  `MOVEFILE_REPLACE_EXISTING` (`tess_replace_file`), so overwriting an
+  existing destination works.
+- The `tscrypt` alias is a **symlink** on Unix-like systems and a
+  **second copy of the binary** on Windows (no symlink privilege needed).
 
 ## Security
 

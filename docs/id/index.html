@@ -65,7 +65,7 @@
     <article>
       <h3>PEM-like armor</h3>
       <p>Output ke TTY otomatis dibungkus
-      <code>-----BEGIN TESSERACT MESSAGE-----</code> — aman disalin-tempel.</p>
+      <code>-----BEGIN TESSERACT MESSAGE-----</code> — aman disalin-tempel. <code>inspect</code> mendeteksi input ber-armor secara otomatis.</p>
     </article>
     <article>
       <h3>Atomic output</h3>
@@ -76,7 +76,7 @@
       <h3>Multi-penerima (v2)</h3>
       <p>Satu pesan untuk satu tim: data key acak dibungkus sekali per penerima
       memakai rahasia DH X25519 miliknya. Ulangi <code>-r</code> di CLI;
-      non-penerima ditolak secara eksplisit.</p>
+      non-penerima ditolak secara eksplisit (kode keluar <code>3</code>).</p>
     </article>
   </section>
 
@@ -96,6 +96,10 @@ tesseract-crypt encrypt -r bob.pub -k alice.key -i rahasia.txt -o rahasia.enc
 
 <span class="c"># dekripsi + wajibkan pengirim</span>
 tesseract-crypt decrypt -k bob.key -i rahasia.enc -o rahasia.out --require-signer alice.pub
+
+<span class="c"># rekey ke penerima baru (rotasi kunci)</span>
+tesseract-crypt keygen -o charlie
+tesseract-crypt rekey -k bob.key -i rahasia.enc -o rahasia.rekey -r charlie.pub --require-signer alice.pub
 
 <span class="c"># enkripsi string (langsung ke stdout, otomatis armor)</span>
 tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
@@ -142,6 +146,8 @@ tess_seal((<span class="k">const</span> uint8_t *)<span class="s">"rahasia"</spa
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
+        <a href="../audit-readiness.md">Kesiapan audit</a>
+        <a href="../coverage.md">Cakupan kode</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

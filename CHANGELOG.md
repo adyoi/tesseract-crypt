@@ -1,76 +1,72 @@
 # Changelog
 
-Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
-[Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
-[Semantic Versioning](https://semver.org/lang/id/).
+All notable changes to Tesseract Crypt are documented here, following
+[Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/).
 
-## [Belum dirilis] — 0.1.0
+## [Unreleased] — 0.1.0
 
-### Ditambahkan
+### Added
 
-- **Library inti C11** `libtesseract_crypt`:
+- **Core C11 library** `libtesseract_crypt`:
   - Hybrid public-key encryption: ephemeral X25519 (forward secrecy) +
     static DH (identity binding) → BLAKE2b KDF → XChaCha20-Poly1305 AEAD.
-  - Sign-then-encrypt: Ed25519ph streaming; header 264 byte menjadi AAD
-    setiap chunk (anti reorder/splice/truncation).
-  - Mode passphrase fallback dengan Argon2id (memory-hard, ops/mem dari
-    header, dibatasi untuk input tak tepercaya).
-  - Streaming chunked: subkey per-chunk (`crypto_kdf`, konteks `TSCHNK01`),
-    nonce = base nonce XOR index, memori konstan.
+  - Sign-then-encrypt: Ed25519ph streaming; header (264 bytes) becomes AAD
+    for every chunk (anti reorder/splice/truncation).
+  - Passphrase fallback mode with Argon2id (memory-hard, ops/mem taken from
+    header, bounded for untrusted input).
+  - Streaming chunked: per-chunk subkey (`crypto_kdf`, context `TSCHNK01`),
+    nonce = base nonce XOR index, constant memory.
   - PEM-like armor (base64) `-----BEGIN TESSERACT MESSAGE-----` + dearmor.
-  - Format berkas kunci `TSK1` (privat polos, 164 B), `TSK2` (privat
-    terkunci Argon2id, 232 B), `TSKp` (publik, 68 B).
-  - Atomic write: output ditulis ke `.part`, dipindahkan hanya setelah AEAD
-    dan signature sukses (Windows memakai `MoveFileExA`, lihat
-    `tess_replace_file`).
-- **CLI** `tesseract-crypt` (nama kanonik) dengan alias `tscrypt`:
-  `keygen`, `pubkey`, `encrypt`, `decrypt`, `sign`, `verify`, `inspect`,
-  `info`, `version`, `help`.
-- **Wrapper C++17 header-only** `<tesseract/tesseract.hpp>`.
+  - Key file formats `TSK1` (plain private, 164B), `TSK2` (Argon2id-locked,
+    232B), `TSKp` (public, 68B).
+  - Atomic write: output written to `.part`, moved only after AEAD and
+    signature succeed. Uses `tess_replace_file` on Windows.
+- **CLI** `tesseract-crypt` (canonical name) with alias `tscrypt`:
+  `keygen`, `pubkey`, `encrypt`, `decrypt`, `rekey`, `sign`, `verify`,
+  `inspect`, `info`, `version`, `help`.
+- **C++17 header-only wrapper** `<tesseract/tesseract.hpp>`.
 - **Build & CI**:
-  - CMake ≥ 3.16 + `FindSodium.cmake` fallback; konfigurasi package
+  - CMake ≥ 3.16 + `FindSodium.cmake` fallback; package configuration
     (`tesseract-config.cmake`) + CPack.
-  - CI Linux: GCC & Clang × Debug/Release (warnings-as-errors) + job
-    ASan/UBSan + job fuzz libFuzzer (60 detik/target).
-  - Target libFuzzer `fuzz_inspect`, `fuzz_dearmor`, `fuzz_key_parse`
-    (opt-in `-DTESS_FUZZ=ON`, Clang saja).
-  - Tes known-answer (KAT) `tests/test_vectors.c` + fixture terkunci
-    `tests/fixtures/`: header format v1 (264 byte), armor, dan signature
-    Ed25519ph deterministik atas kunci fixture.
-  - **Multi-penerima (format v2):** satu pesan untuk banyak kunci publik —
-    data key acak 32 byte dibungkus per penerima (blok 80 byte: recipient pk
-    + AEAD 48 byte, AAD = header 264 byte + pk penerima); header v2 memuat
-    jumlah penerima (u32 @ offset 40, byte 44–71 cadangan wajib nol). Kunci
-    privat lain yang bukan penerima ditolak eksplisit (`TESS_ERR_RECIPIENT`,
-    exit 3). CLI: ulangi `-r`. Tes `tests/test_multi.c` + vektor header v2.
-  - GitHub Pages workflow untuk `docs/`.
-  - **APT repository Linux** di GitHub Pages (`/apt`): tiap push `main`
-    membangun ulang DEB (CPack) + repo `dists/stable` + `pool/`, ditandatangani
-    GPG RSA-4096 (`InRelease` + `Release.gpg`); kunci publik di-commit di
-    `docs/apt/tesseract-crypt.asc`; instruksi `apt install` di README EN/ID.
-- **CLI**: subcommand `rekey` (key rotation) untuk rewrap pesan ke penerima/pengirim baru dengan verifikasi signer lama.
-- **Docs**: landing page, referensi CLI, spesifikasi format; man page
-    `tesseract-crypt(1)` (alias `tscrypt(1)`).
+  - CI Linux: GCC & Clang × Debug/Release (warnings-as-errors) + ASan/UBSan
+    job + fuzz LibFuzzer job (60s/target).
+  - LibFuzzer targets `fuzz_inspect`, `fuzz_dearmor`, `fuzz_key_parse`
+    (opt-in with `-DTESS_FUZZ=ON`, Clang only).
+  - Known-answer tests (KAT) `tests/test_vectors.c` + locked fixtures in
+    `tests/fixtures/`: v1 format header (264 bytes), armor, and deterministic
+    Ed25519ph signature over fixture key.
+  - **Multi-recipient (v2):** one message for many public keys — a random 32-byte
+    data key wrapped per recipient (80-byte block: recipient pk + AEAD 48-byte,
+    AAD = header 264 bytes + recipient pk); v2 header contains recipient count
+    (u32 at offset 40, bytes 44–71 reserved zero). Other private keys are rejected
+    explicitly (`TESS_ERR_RECIPIENT`, exit 3). CLI: repeat `-r`. Tested with
+    `tests/test_multi.c` + v2 header vector.
+  - GitHub Pages workflow for `docs/`.
+  - **Linux APT repository** on GitHub Pages (`/apt`): on each push to `main`
+    a DEB (CPack) + repo `dists/stable` + `pool/` is rebuilt and signed with
+    GPG RSA-4096 (`InRelease`, `Release.gpg`). Public key committed in
+    `docs/apt/tesseract-crypt.asc`; `apt install` instructions in README EN/ID.
+- **Docs**: landing page, CLI reference, format specification; man page
+  `tesseract-crypt(1)` (alias `tscrypt(1)`).
 
-### Diperbaiki
+### Fixed
 
-- Armor buffer sizing overflow pada label panjang.
-- Logika korupsi tes dearmor.
-- `out_signed` tidak tersebar pada jalur dekripsi berkas ber-armor.
-- `rename()` Windows tidak menimpa berkas tujuan → `tess_replace_file`.
-- `getpass` membaca baris stdin saat non-TTY.
+- Armor buffer sizing overflow on long labels.
+- Dearmor test corruption logic.
+- `out_signed` not propagated on armored file decrypt path.
+- Windows `rename()` not replacing destination file → `tess_replace_file`.
+- `getpass` reading a line from stdin when non-TTY.
 
-### Keamanan
+### Security
 
-- Batas kaprah Argon2id saat membaca header/blob tak tepercaya:
-  ≤ 16 ops, ≤ 4 GiB memori, min 64 KiB.
-- Seluruh material sensitif di-`sodium_memzero`; kunci privat di-`sodium_mlock`.
+- Argon2id bounds when reading untrusted header/blob:
+  ≤ 16 ops, ≤ 4 GiB memory, min 64 KiB.
+- All sensitive material is `sodium_memzero`; private keys `sodium_mlock`.
 
-### Catatan
+### Notes
 
-- Laporan kerentanan → [SECURITY.md](SECURITY.md).
+- Report vulnerabilities → [SECURITY.md](SECURITY.md).
 
 ## [0.0.1] — 2026-10-07
 
-- Lintasan awal milistik (milestone M0/M1) — kode internal, tidak untuk
-  pemakaian produksi.
+- Early milestone (M0/M1) — internal code, not for production use.

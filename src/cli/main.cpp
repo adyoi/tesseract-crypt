@@ -644,8 +644,10 @@ cleanup:
 }
 
 int cmd_rekey(const parser &p) {
-    tess_rekey_options ro;
-    tess_rekey_options_init(&ro);
+    tess_open_options oo;
+    tess_open_options_init(&oo);
+    tess_seal_options so;
+    tess_seal_options_init(&so);
 
     std::string old_key = p.get("-k");
     std::string old_pass = p.get("--old-passphrase");
@@ -663,21 +665,28 @@ int cmd_rekey(const parser &p) {
     int rc = EXIT_OK;
     uint32_t chunk = 0;
 
+    if (!old_key.empty() && !old_pass.empty()) {
+        std::cerr << "tesseract-crypt rekey: use either -k OLD_KEY or "
+                     "--old-passphrase, not both\n";
+        return EXIT_USAGE;
+    }
     if (old_key.empty() && old_pass.empty()) {
+        /* neither given: assume passphrase mode and prompt */
         old_pass = getpass("Old passphrase: ");
         if (old_pass.empty()) {
             std::cerr << "tesseract-crypt rekey: empty old passphrase\n";
             return EXIT_USAGE;
         }
-        ro.old_passphrase = old_pass.c_str();
-    } else if (!old_key.empty()) {
+    }
+    if (!old_key.empty()) {
         st = load_key(old_key, std::string(), true, &old_sec);
         if (st != TESS_OK) {
             fail(st, "loading " + old_key);
             return exit_for(st);
         }
         if (tess_key_is_locked(old_sec)) {
-            std::string entered = getpass(("Passphrase for " + old_key + ": ").c_str());
+            std::string entered =
+                getpass(("Passphrase for " + old_key + ": ").c_str());
             st = tess_key_unlock(old_sec, entered.c_str());
             if (st != TESS_OK) {
                 fail(st, "unlocking " + old_key);
@@ -685,9 +694,9 @@ int cmd_rekey(const parser &p) {
                 return exit_for(st);
             }
         }
-        ro.old_recipient_secret = old_sec;
+        oo.recipient_secret = old_sec;
     } else {
-        ro.old_passphrase = old_pass.c_str();
+        oo.passphrase = old_pass.c_str();
     }
 
     if (!signer_path.empty()) {
@@ -697,7 +706,7 @@ int cmd_rekey(const parser &p) {
             rc = exit_for(st);
             goto rcleanup;
         }
-        ro.old_required_signer = req_signer;
+        oo.required_signer = req_signer;
     }
 
     if (rec_paths.empty()) {
@@ -719,10 +728,10 @@ int cmd_rekey(const parser &p) {
     rec_view.reserve(rec_pubs.size());
     for (auto k : rec_pubs) rec_view.push_back(k);
     if (rec_pubs.size() == 1) {
-        ro.recipient_public = rec_pubs[0];
+        so.recipient_public = rec_pubs[0]; /* single recipient: format v1 */
     } else {
-        ro.recipients = rec_view.data();
-        ro.recipient_count = rec_view.size();
+        so.recipients = rec_view.data();   /* multi-recipient: format v2 */
+        so.recipient_count = rec_view.size();
     }
 
     if (!sender_path.empty()) {
@@ -737,10 +746,10 @@ int cmd_rekey(const parser &p) {
             rc = EXIT_AUTH;
             goto rcleanup;
         }
-        ro.sender_secret = sender;
+        so.sender_secret = sender;
     }
-    ro.sign = do_sign ? 1 : 0;
-    if (p.get_u32("--chunk-size", chunk)) ro.chunk_size = chunk;
+    so.sign = (do_sign && sender != nullptr) ? 1 : 0;
+    if (p.get_u32("--chunk-size", chunk)) so.chunk_size = chunk;
     else if (p.has("--chunk-size")) {
         std::cerr << "tesseract-crypt rekey: invalid --chunk-size\n";
         rc = EXIT_USAGE;
@@ -754,18 +763,21 @@ int cmd_rekey(const parser &p) {
         bool out_file = (out_path != "-");
 
         if (in_file && out_file) {
-            tess_rekey_file_options rfo;
-            tess_rekey_file_options_init(&rfo);
-            rfo.old_recipient_secret = old_sec;
-            rfo.old_passphrase = (old_pass.empty() ? nullptr : old_pass.c_str());
-            rfo.old_required_signer = req_signer;
-            rfo.recipient_public = ro.recipient_public;
-            rfo.recipients = ro.recipients;
-            rfo.recipient_count = ro.recipient_count;
-            rfo.sender_secret = sender;
-            rfo.sign = ro.sign;
-            rfo.chunk_size = ro.chunk_size;
-            st = tess_rekey_file(in_path.c_str(), out_path.c_str(), &rfo);
+            /* file -> file: streaming, atomic, verify-then-rename */
+            tess_open_file_options ofo;
+            tess_seal_file_options sfo;
+            tess_open_file_options_init(&ofo);
+            tess_seal_file_options_init(&sfo);
+            ofo.recipient_secret = old_sec;
+            ofo.passphrase = old_pass.empty() ? nullptr : old_pass.c_str();
+            ofo.required_signer = req_signer;
+            sfo.recipient_public = so.recipient_public;
+            sfo.recipients = so.recipients;
+            sfo.recipient_count = so.recipient_count;
+            sfo.sender_secret = sender;
+            sfo.sign = so.sign;
+            sfo.chunk_size = so.chunk_size;
+            st = tess_rekey_file(in_path.c_str(), out_path.c_str(), &ofo, &sfo);
             if (st != TESS_OK) {
                 fail(st, "rekey " + in_path);
                 remove_part(out_path);
@@ -793,14 +805,29 @@ int cmd_rekey(const parser &p) {
             uint8_t *out = nullptr;
             size_t out_len = 0;
             st = tess_rekey(reinterpret_cast<const uint8_t *>(data.data()),
-                            data.size(), &ro, &out, &out_len);
+                            data.size(), &oo, &so, &out, &out_len);
             if (st != TESS_OK) {
                 fail(st, "rekey");
                 rc = exit_for(st);
                 goto rcleanup;
             }
-            std::string res(reinterpret_cast<const char *>(out), out_len);
-            tess_free(out);
+            bool arm = p.has("--armor") || (out_path == "-" && stdout_tty());
+            std::string res;
+            if (arm) {
+                char *txt = nullptr;
+                st = tess_armor(out, out_len, "TESSERACT MESSAGE", &txt);
+                tess_free(out);
+                if (st != TESS_OK) {
+                    fail(st, "armor");
+                    rc = exit_for(st);
+                    goto rcleanup;
+                }
+                res.assign(txt);
+                tess_free(txt);
+            } else {
+                res.assign(reinterpret_cast<const char *>(out), out_len);
+                tess_free(out);
+            }
             if (!write_output(out_path, res)) rc = EXIT_FAIL;
         }
     }

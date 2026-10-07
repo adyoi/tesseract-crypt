@@ -249,30 +249,53 @@ inline tess_message_info inspect(const bytes &message) {
     return info;
 }
 
+/**
+ * Re-encrypt an existing message for new recipients (key rotation).
+ * @param message          ciphertext produced by seal()
+ * @param old_recipient    private key that can open `message` (or nullptr)
+ * @param old_passphrase   passphrase for symmetric mode (or empty)
+ * @param old_required_signer pin the original signer while decrypting
+ * @param recipients       new recipient public keys (empty => passphrase mode)
+ * @param sender           new sender private key (optional)
+ * @param sign             sign the new message with `sender`
+ * @param chunk_size       0 => keep the library default
+ */
 inline bytes rekey(const bytes &message, const key *old_recipient = nullptr,
                    const std::string &old_passphrase = {},
                    const key *old_required_signer = nullptr,
                    const std::vector<const key *> &recipients = {},
                    const key *sender = nullptr, bool sign = false,
                    uint32_t chunk_size = 0) {
-    tess_rekey_options o;
-    tess_rekey_options_init(&o);
-    o.old_recipient_secret = old_recipient ? old_recipient->get() : nullptr;
-    o.old_passphrase = old_passphrase.empty() ? nullptr : old_passphrase.c_str();
-    o.old_required_signer = old_required_signer ? old_required_signer->get() : nullptr;
+    tess_open_options oo;
+    tess_open_options_init(&oo);
+    oo.recipient_secret = old_recipient ? old_recipient->get() : nullptr;
+    oo.passphrase = old_passphrase.empty() ? nullptr : old_passphrase.c_str();
+    oo.required_signer =
+        old_required_signer ? old_required_signer->get() : nullptr;
+
+    tess_seal_options so;
+    tess_seal_options_init(&so);
     std::vector<const tess_key *> raw;
     raw.reserve(recipients.size());
     for (const key *k : recipients) raw.push_back(k ? k->get() : nullptr);
     if (!recipients.empty()) {
-        o.recipients = raw.data();
-        o.recipient_count = raw.size();
+        if (raw.size() == 1) {
+            so.recipient_public = raw[0];
+        } else {
+            so.recipients = raw.data();
+            so.recipient_count = raw.size();
+        }
+    } else {
+        so.passphrase = old_passphrase.empty() ? nullptr
+                                               : old_passphrase.c_str();
     }
-    o.sender_secret = sender ? sender->get() : nullptr;
-    o.sign = sign ? 1 : 0;
-    o.chunk_size = chunk_size;
+    so.sender_secret = sender ? sender->get() : nullptr;
+    so.sign = sign ? 1 : 0;
+    so.chunk_size = chunk_size;
+
     uint8_t *out = nullptr;
     size_t out_len = 0;
-    check(tess_rekey(message.data(), message.size(), &o, &out, &out_len));
+    check(tess_rekey(message.data(), message.size(), &oo, &so, &out, &out_len));
     bytes result(out, out + out_len);
     tess_free(out);
     return result;

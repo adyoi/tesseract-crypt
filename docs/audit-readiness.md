@@ -70,4 +70,4 @@ Recommended areas for deep review:
 - Specification: `docs/format.html`, `docs/id/format.html`
 - API: `include/tesseract/tesseract.h`
 - Threats/handling: `SECURITY.md`
-- Design decisions: `RENCANA.md`
+- Design decisions: `DEVELOPMENT.md`

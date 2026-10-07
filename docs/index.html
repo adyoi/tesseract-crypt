@@ -80,7 +80,7 @@
       <h3>Multi-recipient (v2)</h3>
       <p>One message for a whole team: a random data key wrapped once per
       recipient under their own X25519 DH secret. Repeat <code>-r</code> on
-      the CLI; non-recipients are rejected explicitly.</p>
+      the CLI; non-recipients are rejected explicitly (exit code <code>3</code>).</p>
     </article>
   </section>
 
@@ -100,6 +100,10 @@ tesseract-crypt encrypt -r bob.pub -k alice.key -i secret.txt -o secret.enc
 
 <span class="c"># decrypt + require the sender</span>
 tesseract-crypt decrypt -k bob.key -i secret.enc -o secret.out --require-signer alice.pub
+
+<span class="c"># rekey for new recipients (key rotation)</span>
+tesseract-crypt keygen -o charlie
+tesseract-crypt rekey -k bob.key -i secret.enc -o secret.rekey -r charlie.pub --require-signer alice.pub
 
 <span class="c"># encrypt a string (straight to stdout, auto-armored)</span>
 tesseract-crypt encrypt --text "Hello world" -r bob.pub
@@ -146,6 +150,8 @@ tess_seal((<span class="k">const</span> uint8_t *)<span class="s">"secret"</span
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+        <a href="audit-readiness.md">Audit readiness</a>
+        <a href="coverage.md">Coverage</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

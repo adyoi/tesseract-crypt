@@ -93,6 +93,13 @@
         <code>3</code>, with no corrupted file at the destination.</p>
       </article>
       <article>
+        <h3>Key rotation (rekey)</h3>
+        <p><code>tesseract-crypt rekey</code> rewraps an existing message for
+        new recipients (optionally re-signing and checking the original
+        signer) without touching the encrypted payload — rotate or extend
+        access without re-encrypting the file.</p>
+      </article>
+      <article>
         <h3>Library + CLI hybrid</h3>
         <p>A <strong>C11</strong> core (embeddable) + <strong>C++17</strong>
         CLI, one binary named <code>tesseract-crypt</code> with the
@@ -259,6 +266,8 @@
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+        <a href="audit-readiness.md">Audit readiness</a>
+        <a href="coverage.md">Coverage</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

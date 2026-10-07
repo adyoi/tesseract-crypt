@@ -1,67 +1,66 @@
-# Kebijakan Keamanan
+# Security Policy
 
-## Prinsip desain (apa yang membuat aplikasi ini aman)
+## Design Principles (what makes this application secure)
 
 - **Hybrid public-key encryption** — ephemeral X25519 (forward secrecy per
-  pesan) + static DH (identity binding) → BLAKE2b KDF → XChaCha20-Poly1305.
-- **Sign-then-encrypt** — Ed25519ph streaming; header 264 byte menjadi AAD
-  setiap chunk sehingga truncation, reorder, dan splice terdeteksi secara
-  kriptografis.
-- **Atomic output** — plaintext ditulis ke `.part` dan hanya di-*rename*
-  setelah AEAD + tanda tangan (bila diminta) sukses.
-- **Mode passphrase** — Argon2id memory-hard; saat membaca header/blob tak
-  tepercaya parameter dibatasi (≤ 16 ops, ≤ 4 GiB, min 64 KiB) untuk
-  mencegah DoS memori.
-- **Kebersihan memori** — private key di-`sodium_mlock`, material sensitif
-  di-`sodium_memzero`. Tanpa RNG sendiri; hanya `randombytes_buf` libsodium.
+  message) + static DH (identity binding) → BLAKE2b KDF → XChaCha20-Poly1305.
+- **Sign-then-encrypt** — Ed25519ph streaming; header (264 bytes) becomes AAD
+  for every chunk so truncation, reordering, and splicing are detected
+  cryptographically.
+- **Atomic output** — plaintext is written to `.part` and only renamed
+  after AEAD + signature (if requested) succeed.
+- **Passphrase mode** — memory-hard Argon2id; bounds on ops/mem when reading
+  untrusted headers/blobs to prevent memory DoS.
+- **Memory hygiene** — private keys `sodium_mlock`, sensitive material
+  `sodium_memzero`. No custom RNG; only libsodium `randombytes_buf`.
 
-## Versi yang didukung
+## Supported Versions
 
-| Versi | Status dukungan |
-|-------|-----------------|
-| `v0.1.x` | Aktif (pengembangan) — tampatkan di lingkungan yang tidak tepercaya |
+| Version | Support status |
+|---------|----------------|
+| `v0.1.x` | Active (development) — use in untrusted environments |
 
-Catatan: format `v1` belum pernah dirilis publik; jika ditemukan masalah
-format sebelum rilis 1.0, kami dapat mengganti format tanpa kompatibilitas
-mundur.
+Note: format `v1` has not been released publicly; if a format issue is found
+before a 1.0 release, we may change the format without backward compatibility.
 
-## Melaporkan kerentanan
+## Reporting a Vulnerability
 
-**Jangan membuka issue publik.** Kirim laporan pribadi melalui salah satu
-saluran berikut:
+**Do not open a public issue.** Submit a private report via one of the
+following channels:
 
-1. **GitHub Security Advisory** — halaman repo → *Security* → *Report a
-   vulnerability* (cara yang disukai).
-2. **Email maintainer** — alamat kontak yang tercantum pada halaman profile
-   maintainer repo (hanya untuk laporan keamanan).
+1. **GitHub Security Advisory** — repo page → *Security* → *Report a
+   vulnerability* (preferred).
+2. **Email maintainers** — contact address listed on the repo maintainer
+   profile page (only for security reports).
 
-### Yang perlu disertakan
+### What to include
 
-- Versi produk (`tesseract-crypt version`) dan platform (OS, arsitektur).
-- Cara build (distro libsodium / vcpkg / manual).
-- Deskripsi kerentanan: apa yang bisa disalahgunakan, bagaimana, dan dampaknya.
-- Bukti konsep singkat — **tanpa** kunci/private material publik di daftar CC.
-- Jika melibatkan format biner, sertakan berkas contoh terkecil yang memicu.
+- Product version (`tesseract-crypt version`) and platform (OS, architecture).
+- Build method (libsodium distro / vcpkg / manual).
+- Description of the vulnerability: what can be abused, how, and impact.
+- Brief proof-of-concept — **without** exposing public keys/private material.
+- If it involves the binary format, include the smallest sample file that
+  triggers it.
 
-### Komitmen kami
+### Our commitment
 
-- Balasan konfirmasi dalam **≤ 72 jam**.
-- Pembaruan status setiap **≤ 5 hari kerja**.
-- Resolusi: perbaikan + tes regresi, lalu pengumuman bersamaan dengan rilis
-  penambal (tanpa *embargo* publik yang permanen).
-- Bila layak, kredit pelapor di CHANGELOG (kecuali diminta anonim).
+- Acknowledgment within **≤ 72 hours**.
+- Status updates every **≤ 5 business days**.
+- Resolution: fix + regression tests, then announcement with patch release
+  (no permanent public embargo).
+- Credit to the reporter in CHANGELOG when applicable (unless anonymity requested).
 
-## Area sensitif (fokus reviewer keamanan)
+## Sensitive areas (reviewer focus)
 
-- Arbitrase alokasi dari ukuran header/chunk (`tess_header_parse`,
+- Allocation arbitration from header/chunk sizes (`tess_header_parse`,
   `tess_seal`).
-- Batas Argon2id pada jalur *untrusted* (buka pesan/kunci tak dikenal).
-- Transisi state streaming (tanda tangan & enkripsi) dan atomisitas output.
-- Cross-platform naming/binary (`tesseract-crypt` / `tscrypt`) di PATH.
+- Argon2id bounds on untrusted paths (opening unknown messages/keys).
+- Streaming state transitions (signing & encryption) and output atomicity.
+- Cross-platform naming/binary (`tesseract-crypt` / `tscrypt`) in PATH.
 
-## Proses
+## Process
 
-1. Pelapor membuat laporan pribadi (advisory atau email).
-2. Maintainer menetapkan keparahan (CVSS) dan memverifikasi.
-3. Perbaikan dikembangkan dengan tes regresi; diuji GCC/Clang + ASan/UBSan.
-4. Release tambalan + catatan keamanan diterbitkan.
+1. Reporter submits a private report (advisory or email).
+2. Maintainers assess severity (CVSS) and verify.
+3. Fix developed with regression tests; tested on GCC/Clang + ASan/UBSan.
+4. Patch release + security notes published.
