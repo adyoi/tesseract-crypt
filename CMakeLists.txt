@@ -12,6 +12,7 @@ option(TESS_BUILD_CLI "Build the tesseract-crypt command line tool" ON)
 option(TESS_BUILD_TESTS "Build the test suite" ON)
 option(TESS_SANITIZE "Enable AddressSanitizer + UBSan" OFF)
 option(TESS_WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+option(TESS_FUZZ "Build libFuzzer harnesses (Clang only)" OFF)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -58,6 +59,21 @@ elseif(MSVC)
     if(TESS_WARNINGS_AS_ERRORS)
         add_compile_options(/WX)
     endif()
+endif()
+
+# Fuzzing: instrument the whole build (library + harness) for coverage and
+# memory safety; the harness executables link the libFuzzer runtime on top
+# (see the "fuzzing" section below and fuzz/*.c).
+if(TESS_FUZZ)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "TESS_FUZZ requires Clang — configure with CC=clang")
+    endif()
+    if(TESS_SANITIZE)
+        message(FATAL_ERROR "TESS_FUZZ already enables ASan+UBSan; drop TESS_SANITIZE")
+    endif()
+    add_compile_options(-fsanitize=fuzzer-no-link,address,undefined
+                        -fno-omit-frame-pointer -g)
+    add_link_options(-fsanitize=address,undefined)
 endif()
 
 # ------------------------------------------------------------------ #
@@ -123,12 +139,27 @@ endif()
 if(TESS_BUILD_TESTS)
     enable_testing()
 
-    set(TESS_TESTS roundtrip tamper armor keys file sign)
+    set(TESS_TESTS roundtrip tamper armor keys file sign vectors)
     foreach(t ${TESS_TESTS})
         add_executable(test_${t} tests/test_${t}.c)
         target_link_libraries(test_${t} PRIVATE tesseract::crypt)
         target_include_directories(test_${t} PRIVATE src/core)
         add_test(NAME ${t} COMMAND test_${t})
+    endforeach()
+
+    # Known-answer tests read fixtures from the source tree.
+    target_compile_definitions(test_vectors PRIVATE
+        TESS_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+endif()
+
+# ------------------------------------------------------------------ #
+# fuzzing (libFuzzer — Clang only, enabled with -DTESS_FUZZ=ON)       #
+# ------------------------------------------------------------------ #
+if(TESS_FUZZ)
+    foreach(f inspect dearmor key_parse)
+        add_executable(fuzz_${f} fuzz/fuzz_${f}.c)
+        target_link_libraries(fuzz_${f} PRIVATE tesseract::crypt)
+        target_link_options(fuzz_${f} PRIVATE -fsanitize=fuzzer)
     endforeach()
 endif()
 

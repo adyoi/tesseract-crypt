@@ -31,7 +31,12 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
   - CMake ≥ 3.16 + `FindSodium.cmake` fallback; konfigurasi package
     (`tesseract-config.cmake`) + CPack.
   - CI Linux: GCC & Clang × Debug/Release (warnings-as-errors) + job
-    ASan/UBSan.
+    ASan/UBSan + job fuzz libFuzzer (60 detik/target).
+  - Target libFuzzer `fuzz_inspect`, `fuzz_dearmor`, `fuzz_key_parse`
+    (opt-in `-DTESS_FUZZ=ON`, Clang saja).
+  - Tes known-answer (KAT) `tests/test_vectors.c` + fixture terkunci
+    `tests/fixtures/`: header format v1 (264 byte), armor, dan signature
+    Ed25519ph deterministik atas kunci fixture.
   - GitHub Pages workflow untuk `docs/`.
 - **Docs**: landing page, referensi CLI, spesifikasi format; man page
     `tesseract-crypt(1)` (alias `tscrypt(1)`).

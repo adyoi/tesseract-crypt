@@ -32,6 +32,8 @@ compile_commands.json
 *.enc
 *.sig
 !tests/fixtures/*.sig
+!tests/fixtures/*.key
+!tests/fixtures/*.pub
 
 # OS
 .DS_Store
