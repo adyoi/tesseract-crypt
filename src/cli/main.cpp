@@ -11,16 +11,20 @@
 
 #include <sodium.h>
 
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
+#include <initializer_list>
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #ifdef _WIN32
+#include <fcntl.h>
 #include <io.h>
 #define TESS_ISATTY(fd) _isatty(fd)
 #define TESS_FILENO(f) _fileno(f)
@@ -78,6 +82,7 @@ std::string getpass(const char *prompt) {
     if (_isatty(_fileno(stdin)) == 0) {
         /* piped input: read one line from stdin */
         std::getline(std::cin, s);
+        if (!s.empty() && s.back() == '\r') s.pop_back(); /* CRLF pipe */
         std::fputs("\n", stderr);
         return s;
     }
@@ -114,17 +119,17 @@ std::string getpass(const char *prompt) {
 
 bool read_stream(std::istream &in, std::string &out) {
     char buf[65536];
-    while (in.read(buf, sizeof buf) || in.gcount() > 0) {
-        out.append(buf, static_cast<size_t>(in.gcount()));
-        if (!in) return in.eof();
+    while (in) {
+        in.read(buf, sizeof buf);
+        std::streamsize n = in.gcount();
+        if (n > 0) out.append(buf, static_cast<size_t>(n));
     }
-    return !in.fail();
+    return in.eof(); /* success = clean EOF (true even for empty input) */
 }
 
 /* read input: "-" or empty => stdin, otherwise a file path */
 bool read_input(const std::string &path, std::string &data) {
     if (path.empty() || path == "-") {
-        std::cin.sync();
         return read_stream(std::cin, data);
     }
     std::ifstream f(path, std::ios::binary);
@@ -135,10 +140,9 @@ bool read_input(const std::string &path, std::string &data) {
     return read_stream(f, data);
 }
 
-bool write_output(const std::string &path, const std::string &data) {
+bool write_bytes(const std::string &path, const char *data, size_t len) {
     if (path.empty() || path == "-") {
-        std::cout.write(data.data(),
-                        static_cast<std::streamsize>(data.size()));
+        std::cout.write(data, static_cast<std::streamsize>(len));
         std::cout.flush();
         return static_cast<bool>(std::cout);
     }
@@ -149,7 +153,7 @@ bool write_output(const std::string &path, const std::string &data) {
             std::cerr << "tesseract-crypt: cannot write " << part << "\n";
             return false;
         }
-        f.write(data.data(), static_cast<std::streamsize>(data.size()));
+        f.write(data, static_cast<std::streamsize>(len));
         f.flush();
         if (!f) {
             f.close();
@@ -174,11 +178,13 @@ bool write_output(const std::string &path, const std::string &data) {
     return true;
 }
 
-void remove_part(const std::string &path) {
-    if (!path.empty() && path != "-") {
-        std::string part = path + ".part";
-        std::remove(part.c_str());
-    }
+bool write_output(const std::string &path, const std::string &data) {
+    return write_bytes(path, data.data(), data.size());
+}
+
+/* write raw bytes without an intermediate std::string copy */
+bool write_output(const std::string &path, const uint8_t *data, size_t len) {
+    return write_bytes(path, reinterpret_cast<const char *>(data), len);
 }
 
 /* ------------------------------------------------------------------ */
@@ -224,24 +230,130 @@ struct parser {
         std::string s = get(flag);
         if (s.empty()) return false;
         char *end = nullptr;
+        errno = 0;
         unsigned long n = std::strtoul(s.c_str(), &end, 10);
-        if (end == nullptr || *end != '\0' || n == 0 || n > 0xfffffffful) {
+        if (errno == ERANGE || end == nullptr || *end != '\0' || n == 0 ||
+            n > 0xfffffffful) {
             return false;
         }
         out = static_cast<uint32_t>(n);
         return true;
     }
 
+    /* memory in MiB; capped so the caller's *1MiB conversion cannot overflow */
     bool get_u64_mb(const std::string &flag, uint64_t &out_mb) const {
         std::string s = get(flag);
         if (s.empty()) return false;
         char *end = nullptr;
+        errno = 0;
         unsigned long long n = std::strtoull(s.c_str(), &end, 10);
-        if (end == nullptr || *end != '\0' || n == 0) return false;
+        if (errno == ERANGE || end == nullptr || *end != '\0' || n == 0 ||
+            n > 4096ull) {
+            return false;
+        }
         out_mb = n;
         return true;
     }
 };
+
+/* ------------------------------------------------------------------ */
+/* argument validation helpers                                         */
+/* ------------------------------------------------------------------ */
+
+/* every flag that consumes the following token as its value */
+bool is_value_flag(const std::string &t) {
+    static const char *const value_flags[] = {
+        "-o", "-i", "-k", "-r", "-s",
+        "--text", "--chunk-size", "--require-signer",
+        "--old-passphrase", "--old-passphrase-file",
+        "--kdf-ops", "--kdf-mem"};
+    for (const char *f : value_flags)
+        if (t == f) return true;
+    return false;
+}
+
+/* reject unknown options and missing values for `cmd` (usage error) */
+bool validate_args(const parser &p, const std::string &cmd,
+                   std::initializer_list<const char *> bool_flags) {
+    for (size_t k = 2; k < p.v.size(); k++) {
+        const std::string &t = p.v[k];
+        bool is_bool = false;
+        for (const char *f : bool_flags)
+            if (t == f) { is_bool = true; break; }
+        if (!is_value_flag(t) && !is_bool) {
+            if (t.size() >= 2 && t[0] == '-') {
+                std::cerr << "tesseract-crypt " << cmd
+                          << ": unknown option " << t << "\n";
+            } else {
+                std::cerr << "tesseract-crypt " << cmd
+                          << ": unexpected argument '" << t << "'\n";
+            }
+            return false;
+        }
+        if (is_value_flag(t)) {
+            if (k + 1 >= p.v.size() ||
+                (p.v[k + 1].size() > 1 && p.v[k + 1][0] == '-')) {
+                std::cerr << "tesseract-crypt " << cmd
+                          << ": missing value for " << t << "\n";
+                return false;
+            }
+            k++; /* consume the value */
+        }
+    }
+    return true;
+}
+
+/* parse --chunk-size with the same 4096..16MiB range the core enforces.
+ * out is left 0 (= library default) when the flag is absent. */
+bool parse_chunk(const parser &p, const std::string &cmd, uint32_t &out) {
+    out = 0;
+    if (!p.has("--chunk-size")) return true;
+    if (!p.get_u32("--chunk-size", out) || out < TESS_MIN_CHUNK ||
+        out > TESS_MAX_CHUNK) {
+        std::cerr << "tesseract-crypt " << cmd
+                  << ": invalid --chunk-size (range " << TESS_MIN_CHUNK << ".."
+                  << TESS_MAX_CHUNK << " bytes)\n";
+        return false;
+    }
+    return true;
+}
+
+/* parse the passphrase KDF knobs (0/absent = library defaults) */
+bool parse_kdf(const parser &p, const std::string &cmd, uint32_t &ops,
+               uint64_t &mem_bytes) {
+    uint64_t mem_mb = 0;
+    if (!p.get_u32("--kdf-ops", ops) && p.has("--kdf-ops")) {
+        std::cerr << "tesseract-crypt " << cmd << ": invalid --kdf-ops\n";
+        return false;
+    }
+    if (!p.get_u64_mb("--kdf-mem", mem_mb) && p.has("--kdf-mem")) {
+        std::cerr << "tesseract-crypt " << cmd << ": invalid --kdf-mem\n";
+        return false;
+    }
+    mem_bytes = mem_mb ? mem_mb * 1024ull * 1024ull : 0;
+    return true;
+}
+
+/* read at most `limit` bytes from a file; stdin is read fully (must be
+ * consumed in one go).  Returns true even for files shorter than limit. */
+bool read_bounded(const std::string &path, size_t limit, std::string &data) {
+    if (path.empty() || path == "-") return read_input(path, data);
+    std::ifstream f(path, std::ios::binary);
+    if (!f) {
+        std::cerr << "tesseract-crypt: cannot open " << path << "\n";
+        return false;
+    }
+    char buf[65536];
+    while (data.size() < limit) {
+        size_t want = limit - data.size();
+        if (want > sizeof buf) want = sizeof buf;
+        f.read(buf, static_cast<std::streamsize>(want));
+        std::streamsize n = f.gcount();
+        if (n <= 0) break;
+        data.append(buf, static_cast<size_t>(n));
+    }
+    return true;
+}
 
 /* ------------------------------------------------------------------ */
 /* commands                                                            */
@@ -252,7 +364,7 @@ int cmd_help() {
         "tesseract-crypt " << tess_version() << " — string & file encryption with public/private keys\n"
         "\n"
         "Usage:\n"
-        "  tesseract-crypt keygen   -o NAME [--passphrase] [--kdf-ops N] [--kdf-mem MB]\n"
+        "  tesseract-crypt keygen   -o NAME [--force] [--passphrase] [--kdf-ops N] [--kdf-mem MB]\n"
         "      Generate NAME.key (private) and NAME.pub (public).\n"
         "\n"
         "  tesseract-crypt pubkey   -k KEYFILE [-o OUT]\n"
@@ -262,6 +374,7 @@ int cmd_help() {
         "                   [--armor] [--chunk-size N] [--no-sign]\n"
         "      Repeat -r to encrypt for several recipients at once.\n"
         "  tesseract-crypt encrypt  --passphrase [-i IN] [-o OUT] [--armor]\n"
+        "                   [--kdf-ops N] [--kdf-mem MB]\n"
         "  tesseract-crypt encrypt  --text \"secret\" -r RECIPIENT.pub\n"
         "      Encrypt a file or a string.  Default input/output: stdin/stdout.\n"
         "      Output to a TTY is automatically armored.\n"
@@ -270,7 +383,8 @@ int cmd_help() {
         "                   [--require-signer SIGNER.pub] [--passphrase]\n"
         "      Decrypt a message.  Armored input is auto-detected.\n"
         "\n"
-        "  tesseract-crypt rekey    -k OLD_KEY | --old-passphrase PASS [-i IN] [-o OUT]\n"
+        "  tesseract-crypt rekey    -k OLD_KEY | --old-passphrase PASS |\n"
+        "                   --old-passphrase-file FILE [-i IN] [-o OUT] [--armor]\n"
         "                   -r RECIPIENT.pub [-r MORE.pub ...] [-s SENDER.key]\n"
         "                   [--require-signer SIGNER.pub] [--chunk-size N] [--no-sign]\n"
         "      Re-encrypt a message for new recipients/sender (key rotation).\n"
@@ -293,6 +407,8 @@ int cmd_version() {
 }
 
 int cmd_keygen(const parser &p) {
+    if (!validate_args(p, "keygen", {"--force", "--passphrase"}))
+        return EXIT_USAGE;
     std::string name = p.get("-o");
     if (name.empty()) {
         std::cerr << "tesseract-crypt keygen: missing -o NAME\n";
@@ -303,17 +419,26 @@ int cmd_keygen(const parser &p) {
         name.resize(name.size() - 4);
     }
 
+    std::string priv_path = name + ".key";
+    std::string pub_path = name + ".pub";
+    if (!p.has("--force")) {
+        std::ifstream f(priv_path, std::ios::binary);
+        if (f) {
+            std::cerr << "tesseract-crypt keygen: " << priv_path
+                      << " already exists (use --force to overwrite)\n";
+            return EXIT_USAGE;
+        }
+        std::ifstream g(pub_path, std::ios::binary);
+        if (g) {
+            std::cerr << "tesseract-crypt keygen: " << pub_path
+                      << " already exists (use --force to overwrite)\n";
+            return EXIT_USAGE;
+        }
+    }
+
     uint32_t ops = 0;
-    uint64_t mem_mb = 0;
-    if (!p.get_u32("--kdf-ops", ops) && p.has("--kdf-ops")) {
-        std::cerr << "tesseract-crypt keygen: invalid --kdf-ops\n";
-        return EXIT_USAGE;
-    }
-    if (!p.get_u64_mb("--kdf-mem", mem_mb) && p.has("--kdf-mem")) {
-        std::cerr << "tesseract-crypt keygen: invalid --kdf-mem\n";
-        return EXIT_USAGE;
-    }
-    uint64_t mem = mem_mb ? mem_mb * 1024ull * 1024ull : 0;
+    uint64_t mem = 0;
+    if (!parse_kdf(p, "keygen", ops, mem)) return EXIT_USAGE;
 
     tess_key *sec = nullptr, *pub = nullptr;
     tess_status st;
@@ -338,8 +463,6 @@ int cmd_keygen(const parser &p) {
         return exit_for(st);
     }
 
-    std::string priv_path = name + ".key";
-    std::string pub_path = name + ".pub";
     st = tess_key_save(sec, priv_path.c_str());
     if (st == TESS_OK) st = tess_key_save(pub, pub_path.c_str());
     if (st != TESS_OK) {
@@ -350,7 +473,13 @@ int cmd_keygen(const parser &p) {
     }
 
     char fp[TESS_FINGERPRINT_HEX + 1];
-    tess_key_fingerprint(pub, fp);
+    st = tess_key_fingerprint(pub, fp);
+    if (st != TESS_OK) {
+        fail(st, "fingerprint");
+        tess_key_free(sec);
+        tess_key_free(pub);
+        return exit_for(st);
+    }
     std::cout << "private key : " << priv_path << "\n"
               << "public key  : " << pub_path << "\n"
               << "fingerprint : " << fp << "\n";
@@ -360,6 +489,7 @@ int cmd_keygen(const parser &p) {
 }
 
 int cmd_pubkey(const parser &p) {
+    if (!validate_args(p, "pubkey", {})) return EXIT_USAGE;
     std::string path = p.get("-k");
     if (path.empty()) {
         std::cerr << "tesseract-crypt pubkey: missing -k KEYFILE\n";
@@ -400,7 +530,12 @@ int cmd_pubkey(const parser &p) {
         return exit_for(st);
     }
     char fp[TESS_FINGERPRINT_HEX + 1];
-    tess_key_fingerprint(pub, fp);
+    st = tess_key_fingerprint(pub, fp);
+    if (st != TESS_OK) {
+        fail(st, "fingerprint");
+        tess_key_free(pub);
+        return exit_for(st);
+    }
     std::cout << "public key  : " << out << "\n"
               << "fingerprint : " << fp << "\n";
     tess_key_free(pub);
@@ -421,6 +556,9 @@ tess_status load_key(const std::string &path, const std::string &pass_opt,
 }
 
 int cmd_encrypt(const parser &p) {
+    if (!validate_args(p, "encrypt",
+                       {"--passphrase", "--armor", "--no-sign"}))
+        return EXIT_USAGE;
     tess_seal_options so;
     tess_seal_options_init(&so);
 
@@ -445,6 +583,21 @@ int cmd_encrypt(const parser &p) {
         std::cerr << "tesseract-crypt encrypt: need -r RECIPIENT.pub or --passphrase\n";
         return EXIT_USAGE;
     }
+    if (p.has("-k") && passphrase_mode) {
+        std::cerr << "tesseract-crypt encrypt: use either -k (sender) or --passphrase, not both\n";
+        return EXIT_USAGE;
+    }
+    if (p.has("--text") && p.has("-i")) {
+        std::cerr << "tesseract-crypt encrypt: use either --text or -i, not both\n";
+        return EXIT_USAGE;
+    }
+    if (!parse_chunk(p, "encrypt", chunk)) return EXIT_USAGE;
+    so.chunk_size = chunk;
+    uint32_t kdf_ops = 0;
+    uint64_t kdf_mem = 0;
+    if (!parse_kdf(p, "encrypt", kdf_ops, kdf_mem)) return EXIT_USAGE;
+    so.kdf_ops = kdf_ops;
+    so.kdf_mem = kdf_mem;
 
     if (!rec_paths.empty()) {
         /* load every recipient; repeat -r to encrypt for several at once */
@@ -472,11 +625,7 @@ int cmd_encrypt(const parser &p) {
             st = load_key(sender_path, pass, true, &sender);
             if (st != TESS_OK) {
                 fail(st, "loading " + sender_path);
-                goto cleanup;
-            }
-            if (tess_key_is_locked(sender)) {
-                fail(TESS_ERR_PASSPHRASE, "sender key is locked");
-                rc = EXIT_AUTH;
+                rc = exit_for(st);
                 goto cleanup;
             }
             so.sender_secret = sender;
@@ -491,34 +640,36 @@ int cmd_encrypt(const parser &p) {
             do_sign = false; /* signing requires -k sender.key */
         }
     } else {
+        /* passphrase mode: symmetric, Argon2id-derived key */
         std::string pass = getpass("Passphrase: ");
         if (pass.empty()) {
             std::cerr << "tesseract-crypt encrypt: empty passphrase\n";
             return EXIT_USAGE;
         }
         so.passphrase = pass.c_str();
-        /* keep alive for the duration of the call */
         so.sign = 0;
-        uint32_t cs = 0;
-        p.get_u32("--chunk-size", cs);
-        so.chunk_size = cs;
 
-        std::string in_path = p.get("-i", "-");
+        bool have_text = p.has("--text");
+        std::string text = have_text ? p.get("--text") : std::string();
+        std::string in_path = p.get("-i", have_text ? "" : "-");
         std::string out_path = p.get("-o", "-");
         std::string data;
-        if (!read_input(in_path, data)) return EXIT_FAIL;
+        if (have_text) {
+            data = std::move(text);
+        } else if (!read_input(in_path, data)) {
+            return EXIT_FAIL;
+        }
 
-        bool arm = p.has("--armor") || (out_path == "-" && stdout_tty());
+        bool arm =
+            p.has("--armor") || (out_path == "-" && (stdout_tty() || have_text));
         uint8_t *ct = nullptr;
         size_t ct_len = 0;
         st = tess_seal(reinterpret_cast<const uint8_t *>(data.data()),
                        data.size(), &so, &ct, &ct_len);
         if (st != TESS_OK) {
             fail(st, "encrypt");
-            remove_part(out_path);
             return exit_for(st);
         }
-        std::string out;
         if (arm) {
             char *txt = nullptr;
             st = tess_armor(ct, ct_len, "TESSERACT MESSAGE", &txt);
@@ -527,24 +678,16 @@ int cmd_encrypt(const parser &p) {
                 fail(st, "armor");
                 return exit_for(st);
             }
-            out.assign(txt);
+            bool ok = write_output(out_path, txt);
             tess_free(txt);
-        } else {
-            out.assign(reinterpret_cast<const char *>(ct), ct_len);
-            tess_free(ct);
+            return ok ? EXIT_OK : EXIT_FAIL;
         }
-        if (!write_output(out_path, out)) return EXIT_FAIL;
-        return EXIT_OK;
+        bool ok = write_output(out_path, ct, ct_len);
+        tess_free(ct);
+        return ok ? EXIT_OK : EXIT_FAIL;
     }
 
     so.sign = do_sign ? 1 : 0;
-
-    if (p.get_u32("--chunk-size", chunk)) so.chunk_size = chunk;
-    else if (p.has("--chunk-size")) {
-        std::cerr << "tesseract-crypt encrypt: invalid --chunk-size\n";
-        rc = EXIT_USAGE;
-        goto cleanup;
-    }
 
     {
         std::string text = p.get("--text");
@@ -564,7 +707,6 @@ int cmd_encrypt(const parser &p) {
                 rc = exit_for(st);
                 goto cleanup;
             }
-            std::string out;
             if (arm) {
                 char *txt = nullptr;
                 st = tess_armor(ct, ct_len, "TESSERACT MESSAGE", &txt);
@@ -574,13 +716,12 @@ int cmd_encrypt(const parser &p) {
                     rc = exit_for(st);
                     goto cleanup;
                 }
-                out.assign(txt);
+                if (!write_output(out_path, txt)) rc = EXIT_FAIL;
                 tess_free(txt);
             } else {
-                out.assign(reinterpret_cast<const char *>(ct), ct_len);
+                if (!write_output(out_path, ct, ct_len)) rc = EXIT_FAIL;
                 tess_free(ct);
             }
-            if (!write_output(out_path, out)) rc = EXIT_FAIL;
             goto cleanup;
         }
 
@@ -594,10 +735,11 @@ int cmd_encrypt(const parser &p) {
             fo.sender_secret = sender;
             fo.sign = so.sign;
             fo.chunk_size = so.chunk_size;
+            fo.kdf_ops = so.kdf_ops;
+            fo.kdf_mem = so.kdf_mem;
             st = tess_seal_file(in_path.c_str(), out_path.c_str(), &fo);
             if (st != TESS_OK) {
                 fail(st, "encrypt " + in_path);
-                remove_part(out_path);
                 rc = exit_for(st);
             }
             goto cleanup;
@@ -617,7 +759,6 @@ int cmd_encrypt(const parser &p) {
             rc = exit_for(st);
             goto cleanup;
         }
-        std::string out;
         if (arm) {
             char *txt = nullptr;
             st = tess_armor(ct, ct_len, "TESSERACT MESSAGE", &txt);
@@ -627,13 +768,12 @@ int cmd_encrypt(const parser &p) {
                 rc = exit_for(st);
                 goto cleanup;
             }
-            out.assign(txt);
+            if (!write_output(out_path, txt)) rc = EXIT_FAIL;
             tess_free(txt);
         } else {
-            out.assign(reinterpret_cast<const char *>(ct), ct_len);
+            if (!write_output(out_path, ct, ct_len)) rc = EXIT_FAIL;
             tess_free(ct);
         }
-        if (!write_output(out_path, out)) rc = EXIT_FAIL;
     }
 
 cleanup:
@@ -644,13 +784,16 @@ cleanup:
 }
 
 int cmd_rekey(const parser &p) {
+    if (!validate_args(p, "rekey", {"--no-sign", "--armor"}))
+        return EXIT_USAGE;
     tess_open_options oo;
     tess_open_options_init(&oo);
     tess_seal_options so;
     tess_seal_options_init(&so);
 
     std::string old_key = p.get("-k");
-    std::string old_pass = p.get("--old-passphrase");
+    std::string old_pass_flag = p.get("--old-passphrase");
+    std::string old_pass_file = p.get("--old-passphrase-file");
     std::string signer_path = p.get("--require-signer");
     std::vector<std::string> rec_paths = p.get_all("-r");
     std::vector<tess_key *> rec_pubs;
@@ -665,10 +808,34 @@ int cmd_rekey(const parser &p) {
     int rc = EXIT_OK;
     uint32_t chunk = 0;
 
-    if (!old_key.empty() && !old_pass.empty()) {
+    if (!parse_chunk(p, "rekey", chunk)) return EXIT_USAGE;
+    so.chunk_size = chunk;
+
+    if (!old_key.empty() && (!old_pass_flag.empty() || !old_pass_file.empty())) {
         std::cerr << "tesseract-crypt rekey: use either -k OLD_KEY or "
-                     "--old-passphrase, not both\n";
+                     "--old-passphrase/--old-passphrase-file, not both\n";
         return EXIT_USAGE;
+    }
+    if (!old_pass_flag.empty() && !old_pass_file.empty()) {
+        std::cerr << "tesseract-crypt rekey: use either --old-passphrase or "
+                     "--old-passphrase-file, not both\n";
+        return EXIT_USAGE;
+    }
+    std::string old_pass = old_pass_flag;
+    if (!old_pass_file.empty()) {
+        std::ifstream f(old_pass_file, std::ios::binary);
+        if (!f) {
+            std::cerr << "tesseract-crypt rekey: cannot open --old-passphrase-file "
+                      << old_pass_file << "\n";
+            return EXIT_FAIL;
+        }
+        std::string line;
+        if (!std::getline(f, line)) {
+            std::cerr << "tesseract-crypt rekey: empty --old-passphrase-file\n";
+            return EXIT_USAGE;
+        }
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        old_pass = std::move(line);
     }
     if (old_key.empty() && old_pass.empty()) {
         /* neither given: assume passphrase mode and prompt */
@@ -684,16 +851,8 @@ int cmd_rekey(const parser &p) {
             fail(st, "loading " + old_key);
             return exit_for(st);
         }
-        if (tess_key_is_locked(old_sec)) {
-            std::string entered =
-                getpass(("Passphrase for " + old_key + ": ").c_str());
-            st = tess_key_unlock(old_sec, entered.c_str());
-            if (st != TESS_OK) {
-                fail(st, "unlocking " + old_key);
-                tess_key_free(old_sec);
-                return exit_for(st);
-            }
-        }
+        /* load_key(old_key, _, true) already unlocks; a locked key yields
+           TESS_ERR_PASSPHRASE when the old message is opened */
         oo.recipient_secret = old_sec;
     } else {
         oo.passphrase = old_pass.c_str();
@@ -719,7 +878,6 @@ int cmd_rekey(const parser &p) {
         st = tess_key_load(rp.c_str(), nullptr, &k);
         if (st != TESS_OK) {
             fail(st, "loading " + rp);
-            for (auto kk : rec_pubs) tess_key_free(kk);
             rc = exit_for(st);
             goto rcleanup;
         }
@@ -741,20 +899,10 @@ int cmd_rekey(const parser &p) {
             rc = exit_for(st);
             goto rcleanup;
         }
-        if (tess_key_is_locked(sender)) {
-            fail(TESS_ERR_PASSPHRASE, "sender key is locked");
-            rc = EXIT_AUTH;
-            goto rcleanup;
-        }
         so.sender_secret = sender;
     }
     so.sign = (do_sign && sender != nullptr) ? 1 : 0;
-    if (p.get_u32("--chunk-size", chunk)) so.chunk_size = chunk;
-    else if (p.has("--chunk-size")) {
-        std::cerr << "tesseract-crypt rekey: invalid --chunk-size\n";
-        rc = EXIT_USAGE;
-        goto rcleanup;
-    }
+    so.chunk_size = chunk;
 
     {
         std::string in_path = p.get("-i", "-");
@@ -762,7 +910,7 @@ int cmd_rekey(const parser &p) {
         bool in_file = (in_path != "-");
         bool out_file = (out_path != "-");
 
-        if (in_file && out_file) {
+        if (in_file && out_file && !p.has("--armor")) {
             /* file -> file: streaming, atomic, verify-then-rename */
             tess_open_file_options ofo;
             tess_seal_file_options sfo;
@@ -780,7 +928,6 @@ int cmd_rekey(const parser &p) {
             st = tess_rekey_file(in_path.c_str(), out_path.c_str(), &ofo, &sfo);
             if (st != TESS_OK) {
                 fail(st, "rekey " + in_path);
-                remove_part(out_path);
                 rc = exit_for(st);
             }
         } else {
@@ -841,6 +988,8 @@ rcleanup:
 }
 
 int cmd_decrypt(const parser &p) {
+    if (!validate_args(p, "decrypt", {"--passphrase"}))
+        return EXIT_USAGE;
     tess_open_options oo;
     tess_open_options_init(&oo);
 
@@ -869,16 +1018,8 @@ int cmd_decrypt(const parser &p) {
             fail(st, "loading " + key_path);
             return exit_for(st);
         }
-        if (tess_key_is_locked(sec)) {
-            std::string entered =
-                getpass(("Passphrase for " + key_path + ": ").c_str());
-            st = tess_key_unlock(sec, entered.c_str());
-            if (st != TESS_OK) {
-                fail(st, "unlocking " + key_path);
-                tess_key_free(sec);
-                return exit_for(st);
-            }
-        }
+        /* load_key(_, true) already unlocks; a still-locked key surfaces as
+            TESS_ERR_PASSPHRASE when the message is opened */
         oo.recipient_secret = sec;
     } else {
         pass = getpass("Passphrase: ");
@@ -905,7 +1046,7 @@ int cmd_decrypt(const parser &p) {
         int signed_flag = 0;
         oo.out_signed = &signed_flag;
 
-        if (in_path != "-") {
+        if (in_path != "-" && out_path != "-") {
             /* file -> file: streaming, atomic, verify-then-rename */
             tess_open_file_options fo;
             tess_open_file_options_init(&fo);
@@ -916,7 +1057,6 @@ int cmd_decrypt(const parser &p) {
             st = tess_open_file(in_path.c_str(), out_path.c_str(), &fo);
             if (st != TESS_OK) {
                 fail(st, "decrypt " + in_path);
-                remove_part(out_path);
                 rc = exit_for(st);
                 goto cleanup;
             }
@@ -972,6 +1112,7 @@ cleanup:
 }
 
 int cmd_sign(const parser &p) {
+    if (!validate_args(p, "sign", {})) return EXIT_USAGE;
     std::string key_path = p.get("-k");
     std::string in_path = p.get("-i", "-");
     std::string out_path = p.get("-o");
@@ -989,16 +1130,6 @@ int cmd_sign(const parser &p) {
     if (st != TESS_OK) {
         fail(st, "loading " + key_path);
         return exit_for(st);
-    }
-    if (tess_key_is_locked(sec)) {
-        std::string entered =
-            getpass(("Passphrase for " + key_path + ": ").c_str());
-        st = tess_key_unlock(sec, entered.c_str());
-        if (st != TESS_OK) {
-            fail(st, "unlocking " + key_path);
-            tess_key_free(sec);
-            return exit_for(st);
-        }
     }
 
     uint8_t sig[TESS_SIGNATURE_BYTES];
@@ -1033,6 +1164,7 @@ int cmd_sign(const parser &p) {
 }
 
 int cmd_verify(const parser &p) {
+    if (!validate_args(p, "verify", {})) return EXIT_USAGE;
     std::string key_path = p.get("-k");
     std::string in_path = p.get("-i", "-");
     std::string sig_path = p.get("-s");
@@ -1087,12 +1219,16 @@ int cmd_verify(const parser &p) {
 }
 
 int cmd_inspect(const parser &p) {
+    if (!validate_args(p, "inspect", {})) return EXIT_USAGE;
     std::string in_path = p.get("-i", "-");
+    /* inspect only needs the leading header; bound reads for big files */
     std::string data;
-    if (!read_input(in_path, data)) return EXIT_FAIL;
+    if (!read_bounded(in_path, 256 * 1024, data)) return EXIT_FAIL;
 
     if (tess_is_armored(reinterpret_cast<const uint8_t *>(data.data()),
                         data.size())) {
+        /* armored input is text: re-read in full before dearmoring */
+        if (!read_input(in_path, data)) return EXIT_FAIL;
         uint8_t *raw = nullptr;
         size_t raw_len = 0;
         tess_status st = tess_dearmor(data.c_str(), &raw, &raw_len);
@@ -1137,6 +1273,7 @@ int cmd_inspect(const parser &p) {
 }
 
 int cmd_info(const parser &p) {
+    if (!validate_args(p, "info", {})) return EXIT_USAGE;
     std::string key_path = p.get("-k");
     if (key_path.empty()) {
         std::cerr << "tesseract-crypt info: missing -k KEYFILE\n";
@@ -1180,10 +1317,24 @@ int cmd_info(const parser &p) {
 /* ------------------------------------------------------------------ */
 
 int main(int argc, char **argv) {
+#if defined(_WIN32)
+    /* binary stdin/stdout when not attached to a console */
+    if (!TESS_ISATTY(TESS_FILENO(stdin))) _setmode(_fileno(stdin), _O_BINARY);
+    if (!TESS_ISATTY(TESS_FILENO(stdout))) _setmode(_fileno(stdout), _O_BINARY);
+#endif
     if (sodium_init() < 0) {
         std::cerr << "tesseract-crypt: libsodium initialization failed\n";
         return EXIT_FAIL;
     }
+
+    /* global --help/help anywhere on the command line, unless the token is
+       the value of another flag (e.g. --text "--help") */
+    for (int k = 1; k < argc; k++) {
+        const std::string t = argv[k];
+        if (is_value_flag(t)) { k++; continue; }
+        if (t == "help" || t == "--help" || t == "-h") return cmd_help();
+    }
+
     if (argc < 2) return cmd_help();
 
     parser p(argc, argv);
