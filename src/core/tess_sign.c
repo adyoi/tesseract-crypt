@@ -21,11 +21,19 @@ tess_status tess_sign_finish(tess_sign_ctx *c, const tess_key *secret,
     if (c == NULL || secret == NULL || sig == NULL || !c->active) {
         return TESS_ERR_INVALID_ARG;
     }
-    if (!secret->is_secret || secret->is_locked) return TESS_ERR_INVALID_ARG;
+    if (!secret->is_secret || secret->is_locked) {
+        c->active = 0;
+        return TESS_ERR_INVALID_ARG;
+    }
+    /* the state is consumed by final_create, even on failure */
     if (crypto_sign_final_create(&c->st, sig, &siglen, secret->e_sk) != 0) {
+        c->active = 0;
         return TESS_ERR_INTERNAL;
     }
-    if (siglen != crypto_sign_BYTES) return TESS_ERR_INTERNAL;
+    if (siglen != crypto_sign_BYTES) {
+        c->active = 0;
+        return TESS_ERR_INTERNAL;
+    }
     c->active = 0;
     return TESS_OK;
 }
@@ -123,18 +131,35 @@ static tess_status verify_feed(void *ctx, const uint8_t *m, size_t n) {
     return tess_verify_update((tess_verify_ctx *)ctx, m, n);
 }
 
+/* Size of `path` at open time; used to detect the file changing while we
+ * stream it (signing/verifying inconsistent bytes would be worse than an
+ * I/O error). */
+static tess_status path_size(const char *path, uint64_t *out) {
+    FILE *f = fopen(path, "rb");
+    tess_status st;
+    if (f == NULL) return TESS_ERR_IO;
+    st = tess_file_size(f, out);
+    fclose(f);
+    return st;
+}
+
 tess_status tess_sign_file(const char *path, const tess_key *secret,
                            uint8_t sig[TESS_SIGNATURE_BYTES]) {
     tess_sign_ctx c;
     tess_status st;
+    uint64_t sz_before = 0, sz_after = 0;
 
     if (path == NULL || secret == NULL || sig == NULL) {
         return TESS_ERR_INVALID_ARG;
     }
     if (!secret->is_secret || secret->is_locked) return TESS_ERR_INVALID_ARG;
+    if (path_size(path, &sz_before) != TESS_OK) return TESS_ERR_IO;
     tess_sign_begin(&c);
     st = stream_file(path, sign_feed, &c);
     if (st != TESS_OK) return st;
+    if (path_size(path, &sz_after) != TESS_OK || sz_after != sz_before) {
+        return TESS_ERR_IO;
+    }
     return tess_sign_finish(&c, secret, sig);
 }
 
@@ -142,12 +167,17 @@ tess_status tess_verify_file(const char *path, const tess_key *public_key,
                              const uint8_t sig[TESS_SIGNATURE_BYTES]) {
     tess_verify_ctx c;
     tess_status st;
+    uint64_t sz_before = 0, sz_after = 0;
 
     if (path == NULL || public_key == NULL || sig == NULL) {
         return TESS_ERR_INVALID_ARG;
     }
+    if (path_size(path, &sz_before) != TESS_OK) return TESS_ERR_IO;
     tess_verify_begin(&c);
     st = stream_file(path, verify_feed, &c);
     if (st != TESS_OK) return st;
+    if (path_size(path, &sz_after) != TESS_OK || sz_after != sz_before) {
+        return TESS_ERR_IO;
+    }
     return tess_verify_finish(&c, public_key, sig);
 }

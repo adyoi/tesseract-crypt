@@ -11,6 +11,7 @@
 void tess_key_free(tess_key *key) {
     if (key == NULL) return;
     sodium_memzero(key, sizeof *key);
+    if (key->mem_locked) sodium_munlock(key, sizeof *key);
     free(key);
 }
 
@@ -28,6 +29,8 @@ static tess_status key_alloc(tess_key **out) {
     *out = NULL;
     k = (tess_key *)calloc(1, sizeof *k);
     if (k == NULL) return TESS_ERR_NOMEM;
+    /* best effort: keep the key material out of the swap area */
+    k->mem_locked = sodium_mlock(k, sizeof *k) == 0;
     *out = k;
     return TESS_OK;
 }
@@ -111,9 +114,11 @@ static void pack_secret(const tess_key *k, uint8_t blob[96]) {
 static tess_status lock_derive(const char *pass, const uint8_t salt[16],
                                uint32_t ops, uint64_t mem,
                                uint8_t key[crypto_kdf_KEYBYTES]) {
+    /* parameters are validated by the callers; a failure here is an
+     * allocation failure inside Argon2id */
     if (crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, strlen(pass), salt,
                       ops, mem, crypto_pwhash_ALG_ARGON2ID13) != 0) {
-        return TESS_ERR_CRYPTO;
+        return TESS_ERR_NOMEM;
     }
     return TESS_OK;
 }
@@ -128,6 +133,9 @@ static tess_status key_lock_into(tess_key *k, const char *passphrase,
     if (passphrase == NULL || passphrase[0] == '\0') {
         return TESS_ERR_INVALID_ARG;
     }
+    /* already locked: the secret scalars are gone, re-locking would pack
+     * zeros and destroy the key — unlock first. */
+    if (k->is_locked) return TESS_ERR_INVALID_ARG;
     st = argon_params(ops, mem, &ops, &mem);
     if (st != TESS_OK) return st;
 
@@ -153,6 +161,9 @@ static tess_status key_lock_into(tess_key *k, const char *passphrase,
     }
     sodium_memzero(blob, sizeof blob);
     sodium_memzero(subkey, sizeof subkey);
+    /* the plaintext scalars now live only in lock_blob */
+    sodium_memzero(k->x_sk, sizeof k->x_sk);
+    sodium_memzero(k->e_sk, sizeof k->e_sk);
     k->is_locked = 1;
     return TESS_OK;
 }
@@ -236,6 +247,7 @@ static const char *label_for(const tess_key *k) {
 tess_status tess_key_serialize(const tess_key *key, char **armored) {
     uint8_t buf[256];
     size_t n = 0;
+    tess_status st;
 
     if (key == NULL || armored == NULL) return TESS_ERR_INVALID_ARG;
     *armored = NULL;
@@ -260,7 +272,9 @@ tess_status tess_key_serialize(const tess_key *key, char **armored) {
         pack_private(key, buf + 4);
         n = TESS_KEY_BLOB_PRIVATE; /* 164 */
     }
-    return tess_armor(buf, n, label_for(key), armored);
+    st = tess_armor(buf, n, label_for(key), armored);
+    sodium_memzero(buf, sizeof buf); /* may hold private material */
+    return st;
 }
 
 tess_status tess_key_parse(const char *armored, const char *passphrase,
@@ -355,6 +369,7 @@ tess_status tess_key_save(const tess_key *key, const char *path) {
     if (st != TESS_OK) return st;
     st = tess_write_file_atomic(path, (const uint8_t *)armored,
                                 strlen(armored));
+    sodium_memzero(armored, strlen(armored)); /* private material */
     free(armored);
     return st;
 }

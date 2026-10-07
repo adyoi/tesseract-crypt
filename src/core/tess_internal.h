@@ -79,6 +79,7 @@ typedef struct tess_header {
 struct tess_key {
     int is_secret;   /* carries private material          */
     int is_locked;   /* private material encrypted        */
+    int mem_locked;  /* sodium_mlock() succeeded on alloc */
     uint8_t x_pk[crypto_box_PUBLICKEYBYTES];
     uint8_t x_sk[crypto_box_SECRETKEYBYTES];
     uint8_t e_pk[crypto_sign_PUBLICKEYBYTES];
@@ -165,6 +166,13 @@ void tess_secure_free(void *p, size_t n);
 tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len);
 tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
                                    size_t len);
+
+/* 64-bit size of an open file (stream repositioned at the start) */
+tess_status tess_file_size(FILE *f, uint64_t *out);
+/* fflush + fsync/_commit (data at stable storage) */
+tess_status tess_sync_file(FILE *f);
+/* owner-only mode bits (no-op on Windows, ACLs apply there) */
+void tess_restrict_file(FILE *f);
 
 /* replace `to` with `from` (overwrites an existing destination) */
 int tess_replace_file(const char *from, const char *to);

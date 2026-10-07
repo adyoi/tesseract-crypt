@@ -15,9 +15,15 @@ tess_status tess_rekey(const uint8_t *ct, size_t ct_len,
     size_t pt_len = 0;
     tess_status st;
 
-    if (ct == NULL || ct_len == 0 || open_opt == NULL || rekey_opt == NULL ||
-        out == NULL || out_len == NULL) {
+    if (out == NULL || out_len == NULL || open_opt == NULL ||
+        rekey_opt == NULL) {
         return TESS_ERR_INVALID_ARG;
+    }
+    if (ct == NULL) {
+        return ct_len == 0 ? TESS_ERR_FORMAT : TESS_ERR_INVALID_ARG;
+    }
+    if (ct_len < TESS_HEADER_BYTES) {
+        return TESS_ERR_FORMAT; /* truncated before the header ends */
     }
 
     /* Decrypt to plaintext; this preserves signature verification semantics

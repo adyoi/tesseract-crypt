@@ -299,7 +299,8 @@ tess_status tess_derive_master_pass(const char *passphrase,
     if (crypto_pwhash(out->key, sizeof out->key, passphrase,
                       strlen(passphrase), salt, ops, mem,
                       crypto_pwhash_ALG_ARGON2ID13) != 0) {
-        return TESS_ERR_PASSPHRASE;
+        /* parameters are pre-validated; only allocation can fail here */
+        return TESS_ERR_NOMEM;
     }
     return TESS_OK;
 }
@@ -375,13 +376,21 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
                                 tess_master *master) {
     tess_status st;
     uint8_t eph_sk[crypto_box_SECRETKEYBYTES];
-    const uint8_t *sender_sk =
-        opt ? (opt->sender_secret ? opt->sender_secret->x_sk : NULL) : NULL;
+    const uint8_t *sender_sk = NULL;
     int multi = 0;
     int have_eph = 0;
 
     if (opt == NULL) return TESS_ERR_INVALID_ARG;
     memset(eph_sk, 0, sizeof eph_sk);
+
+    /* The sender key must carry an unlocked secret scalar: it feeds the
+     * static DH term below (and the optional signature).  Reject the wrong
+     * key type/lock state up front instead of failing mid-schedule. */
+    if (opt->sender_secret != NULL) {
+        if (!opt->sender_secret->is_secret) return TESS_ERR_INVALID_ARG;
+        if (opt->sender_secret->is_locked) return TESS_ERR_PASSPHRASE;
+        sender_sk = opt->sender_secret->x_sk;
+    }
 
     if (opt->recipient_public != NULL && opt->passphrase != NULL) {
         return TESS_ERR_INVALID_ARG; /* mode must be unambiguous */
@@ -397,8 +406,17 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
         }
         for (i = 0; i < opt->recipient_count; i++) {
             const tess_key *rk = opt->recipients[i];
+            size_t j;
             if (rk == NULL || all_zero(rk->x_pk, sizeof rk->x_pk)) {
                 return TESS_ERR_INVALID_ARG;
+            }
+            /* duplicate recipients would encrypt the same key twice under
+             * the same nonce space — reject instead of emitting garbage */
+            for (j = 0; j < i; j++) {
+                if (memcmp(opt->recipients[j]->x_pk, rk->x_pk,
+                           sizeof rk->x_pk) == 0) {
+                    return TESS_ERR_INVALID_ARG;
+                }
             }
         }
     }
@@ -455,8 +473,17 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
         h->mode = TESS_MODE_PASSPHRASE;
         randombytes_buf(h->salt, sizeof h->salt);
         randombytes_buf(h->nonce, sizeof h->nonce);
-        h->argon_ops = TESS_ARGON_DEF_OPS;
-        h->argon_mem = TESS_ARGON_DEF_MEM;
+        h->argon_ops = opt->kdf_ops ? opt->kdf_ops : (uint32_t)TESS_ARGON_DEF_OPS;
+        h->argon_mem = opt->kdf_mem ? opt->kdf_mem : (uint64_t)TESS_ARGON_DEF_MEM;
+        /* stay inside the limits readers enforce (anti-DoS), otherwise the
+         * message we produce could not be opened by anyone else */
+        if (h->argon_ops < 1 || h->argon_ops > TESS_ARGON_MAX_OPS) {
+            return TESS_ERR_INVALID_ARG;
+        }
+        if (h->argon_mem < (64ull * 1024ull) ||
+            h->argon_mem > TESS_ARGON_MAX_MEM) {
+            return TESS_ERR_INVALID_ARG;
+        }
         st = tess_derive_master_pass(opt->passphrase, h->salt, h->argon_ops,
                                      h->argon_mem, master);
         if (st != TESS_OK) return st;
@@ -620,7 +647,8 @@ tess_status tess_seal_buf(const uint8_t *pt, size_t pt_len,
     n_owned = 0;
 
     cs = h.chunk_size;
-    nchunks = pt_len == 0 ? 1 : (pt_len + cs - 1) / cs;
+    /* overflow-safe: (pt_len + cs - 1) / cs wraps near SIZE_MAX */
+    nchunks = pt_len == 0 ? 1 : (pt_len - 1) / cs + 1;
     if (nchunks >
         (SIZE_MAX - TESS_HEADER_BYTES - blocks_len) / (cs + 16 + 4)) {
         tess_master_free(&master);
@@ -812,7 +840,10 @@ static tess_status open_chunk(const open_state *st, uint64_t index,
 /* signature + signer pinning, checked once all plaintext is available */
 static tess_status open_check_signature(const open_state *st,
                                         const uint8_t *pt, size_t pt_len) {
-    if ((st->h.flags & TESS_FLAG_SIGNED) == 0) return TESS_OK;
+    if ((st->h.flags & TESS_FLAG_SIGNED) == 0) {
+        /* a pinned signer is only satisfied by a signed message */
+        return st->opt->required_signer != NULL ? TESS_ERR_SIGNER : TESS_OK;
+    }
 
     if (st->opt->required_signer != NULL) {
         if (memcmp(st->opt->required_signer->e_pk, st->h.sender_ed_pk,
@@ -852,6 +883,12 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
     }
     *out = NULL;
     *out_len = 0;
+    if (ct == NULL) {
+        return ct_len == 0 ? TESS_ERR_FORMAT : TESS_ERR_INVALID_ARG;
+    }
+    if (ct_len < TESS_HEADER_BYTES) {
+        return TESS_ERR_FORMAT; /* truncated before the header ends */
+    }
 
     rc = open_resolve_keys(opt, &ropt, owned, &n_owned);
     if (rc != TESS_OK) return rc;
@@ -865,8 +902,15 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
     /* NOTE: st.opt points at ropt, and later stages (signature check) may
      * consult ropt's key pointers, so owned keys are freed only on exit. */
 
-    cap = (st.h.pt_len != UINT64_MAX) ? (size_t)st.h.pt_len
-                                      : (ct_len - st.body_off);
+    /* Initial capacity: the header's plaintext length, but never more than
+     * the ciphertext we actually hold could possibly produce — an attacker
+     * must not choose our allocation size. */
+    {
+        uint64_t max_pt =
+            (ct_len >= st.body_off) ? (uint64_t)(ct_len - st.body_off) : 0;
+        uint64_t want = (st.h.pt_len != UINT64_MAX) ? st.h.pt_len : max_pt;
+        cap = (want > max_pt) ? (size_t)max_pt : (size_t)want;
+    }
     if (cap < 16) cap = 16;
     buf = (uint8_t *)malloc(cap + 1);
     if (buf == NULL) {
@@ -897,9 +941,21 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
         is_final = (pos + (size_t)clen == ct_len);
 
         if (outpos + (size_t)clen > cap) {
-            size_t ncap = cap * 2 + 64;
+            size_t need_cap = outpos + (size_t)clen;
+            size_t ncap;
             uint8_t *nb;
-            while (ncap < outpos + (size_t)clen) ncap *= 2;
+            if (cap > (SIZE_MAX - 64) / 2) {
+                rc = TESS_ERR_NOMEM;
+                goto fail;
+            }
+            ncap = cap * 2 + 64;
+            while (ncap < need_cap) {
+                if (ncap > SIZE_MAX / 2) {
+                    rc = TESS_ERR_NOMEM;
+                    goto fail;
+                }
+                ncap *= 2;
+            }
             nb = (uint8_t *)realloc(buf, ncap + 1);
             if (nb == NULL) {
                 rc = TESS_ERR_NOMEM;
@@ -935,11 +991,16 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
     {
         /* output fields live in a caller-owned (nominally const) struct */
         tess_open_options *mut = (tess_open_options *)(uintptr_t)opt;
+        int signed_msg = (st.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
         if (mut->out_signed != NULL) {
-            *mut->out_signed = (st.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
+            *mut->out_signed = signed_msg;
         }
-        memcpy(mut->out_signer_pk, st.h.sender_ed_pk,
-               sizeof mut->out_signer_pk);
+        if (signed_msg) {
+            memcpy(mut->out_signer_pk, st.h.sender_ed_pk,
+                   sizeof mut->out_signer_pk);
+        } else {
+            memset(mut->out_signer_pk, 0, sizeof mut->out_signer_pk);
+        }
     }
 
     tess_master_free(&st.master);
@@ -968,13 +1029,15 @@ typedef struct part_writer {
 } part_writer;
 
 static tess_status pw_open(part_writer *w, const char *final_path) {
+    int n;
     memset(w, 0, sizeof *w);
-    if (snprintf(w->path, sizeof w->path, "%s.part", final_path) >=
-        (int)sizeof w->path) {
+    n = snprintf(w->path, sizeof w->path, "%s.part", final_path);
+    if (n < 0 || n >= (int)sizeof w->path) {
         return TESS_ERR_INVALID_ARG;
     }
     w->f = fopen(w->path, "wb");
     if (w->f == NULL) return TESS_ERR_IO;
+    tess_restrict_file(w->f); /* owner-only: may hold plaintext */
     return TESS_OK;
 }
 
@@ -988,12 +1051,39 @@ static tess_status pw_write(part_writer *w, const uint8_t *p, size_t n) {
     return TESS_OK;
 }
 
+/* overwrite the aborted partial output before unlinking it (best effort —
+ * on failure the file is plaintext of a decrypt that did not verify) */
+static void wipe_file(const char *path) {
+    FILE *f = fopen(path, "r+b");
+    uint64_t sz = 0;
+    uint8_t z[64 * 1024];
+
+    if (f == NULL) {
+        remove(path);
+        return;
+    }
+    if (tess_file_size(f, &sz) == TESS_OK && sz > 0) {
+        memset(z, 0, sizeof z);
+        while (sz > 0) {
+            size_t n = sz > sizeof z ? sizeof z : (size_t)sz;
+            if (fwrite(z, 1, n, f) != n) break;
+            sz -= n;
+        }
+        (void)fflush(f);
+    }
+    fclose(f);
+    remove(path);
+}
+
 static void pw_abort(part_writer *w) {
     if (w->f != NULL) {
         fclose(w->f);
         w->f = NULL;
     }
-    if (w->path[0] != '\0') remove(w->path);
+    if (w->path[0] != '\0') {
+        wipe_file(w->path);
+        w->path[0] = '\0';
+    }
 }
 
 static tess_status pw_commit(part_writer *w, const char *final_path) {
@@ -1001,31 +1091,21 @@ static tess_status pw_commit(part_writer *w, const char *final_path) {
         pw_abort(w);
         return TESS_ERR_IO;
     }
-    if (fflush(w->f) != 0) {
+    if (tess_sync_file(w->f) != TESS_OK) {
         pw_abort(w);
         return TESS_ERR_IO;
     }
     fclose(w->f);
     w->f = NULL;
     if (tess_replace_file(w->path, final_path) != 0) {
-        remove(w->path);
+        wipe_file(w->path);
         return TESS_ERR_IO;
     }
     w->path[0] = '\0';
     return TESS_OK;
 }
 
-/* file size via seek; returns TESS_ERR_IO when not seekable */
-static tess_status file_size(FILE *f, uint64_t *out) {
-    long end;
-    *out = 0;
-    if (fseek(f, 0, SEEK_END) != 0) return TESS_ERR_IO;
-    end = ftell(f);
-    if (end < 0) return TESS_ERR_IO;
-    if (fseek(f, 0, SEEK_SET) != 0) return TESS_ERR_IO;
-    *out = (uint64_t)end;
-    return TESS_OK;
-}
+/* (file size helpers live in tess_util.c: tess_file_size/tess_sync_file) */
 
 tess_status tess_seal_file(const char *in_path, const char *out_path,
                            const tess_seal_file_options *opt) {
@@ -1034,8 +1114,8 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     uint8_t hdr_raw[TESS_HEADER_BYTES];
     tess_master master;
     part_writer pw;
-    uint8_t *cur = NULL, *nxt = NULL;
-    size_t cs, n_cur = 0, n_nxt = 0;
+    uint8_t *cur = NULL, *nxt = NULL, *ctbuf = NULL;
+    size_t cs = 0, n_cur = 0, n_nxt = 0;
     uint64_t total_len = 0;
     uint64_t index = 0;
     uint8_t signature[TESS_SIGNATURE_BYTES];
@@ -1066,6 +1146,8 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     so.sign = 0;
     so.passphrase = opt->passphrase;
     so.chunk_size = opt->chunk_size;
+    so.kdf_ops = opt->kdf_ops;
+    so.kdf_mem = opt->kdf_mem;
     so.key_provider = opt->key_provider;
     so.key_provider_ctx = opt->key_provider_ctx;
 
@@ -1079,7 +1161,7 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
         st = TESS_ERR_IO;
         goto done;
     }
-    st = file_size(in, &total_len);
+    st = tess_file_size(in, &total_len);
     if (st != TESS_OK) goto done;
 
     /* pass 1: signature over the plaintext (streaming) */
@@ -1118,7 +1200,8 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     cs = h.chunk_size;
     cur = (uint8_t *)malloc(cs + 16);
     nxt = (uint8_t *)malloc(cs + 16);
-    if (cur == NULL || nxt == NULL) {
+    ctbuf = (uint8_t *)malloc(cs + 16);
+    if (cur == NULL || nxt == NULL || ctbuf == NULL) {
         st = TESS_ERR_NOMEM;
         goto done;
     }
@@ -1140,9 +1223,8 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     }
 
     for (;;) {
-        size_t ct_cap = cs + 16, ct_len = 0;
+        size_t ct_len = 0;
         int is_final;
-        uint8_t *ctbuf;
 
         if (n_cur == 0) {
             is_final = 1; /* empty input: single empty final chunk */
@@ -1155,24 +1237,15 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
             is_final = (n_nxt == 0);
         }
 
-        ctbuf = (uint8_t *)malloc(ct_cap);
-        if (ctbuf == NULL) {
-            st = TESS_ERR_NOMEM;
-            goto done;
-        }
         st = seal_chunk(&h, hdr_raw, &master, index, is_final, cur, n_cur,
                         ctbuf, &ct_len);
-        if (st != TESS_OK) {
-            free(ctbuf);
-            goto done;
-        }
+        if (st != TESS_OK) goto done;
         {
             uint8_t lenb[4];
             tess_wr_u32(lenb, (uint32_t)ct_len);
             st = pw_write(&pw, lenb, 4);
             if (st == TESS_OK) st = pw_write(&pw, ctbuf, ct_len);
         }
-        free(ctbuf);
         if (st != TESS_OK) goto done;
 
         index++;
@@ -1191,8 +1264,13 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
 done:
     if (pw_active) pw_abort(&pw);
     if (in) fclose(in);
+    if (cur) sodium_memzero(cur, cs + 16);
+    if (nxt) sodium_memzero(nxt, cs + 16);
+    if (ctbuf) sodium_memzero(ctbuf, cs + 16);
     free(cur);
     free(nxt);
+    free(ctbuf);
+    sodium_memzero(signature, sizeof signature);
     free(blocks);
     free(recip_view == so.recipients ? NULL : (void *)recip_view);
     free_owned_keys(owned, n_owned);
@@ -1220,6 +1298,9 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     tess_status rc;
     int pw_active = 0;
     tess_open_options oo;
+    tess_open_options ro;
+    tess_key *owned[TESS_MAX_OWNED_KEYS];
+    size_t n_owned = 0;
     uint8_t peek[8];
 
     if (in_path == NULL || out_path == NULL || opt == NULL) {
@@ -1269,6 +1350,14 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
             sodium_memzero(raw, rawlen);
             free(raw);
             if (rc != TESS_OK) goto out;
+            /* out_signer_pk is a value field: propagate to the caller
+             * (the options pointer is nominally const, like in tess_open) */
+            {
+                tess_open_file_options *mut =
+                    (tess_open_file_options *)(uintptr_t)opt;
+                memcpy(mut->out_signer_pk, oo.out_signer_pk,
+                       sizeof mut->out_signer_pk);
+            }
             rc = tess_write_file_atomic(out_path, pt, ptlen);
             sodium_memzero(pt, ptlen);
             free(pt);
@@ -1277,7 +1366,7 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     }
 
     memset(&st_ctx, 0, sizeof st_ctx);
-    rc = file_size(in, &total);
+    rc = tess_file_size(in, &total);
     if (rc != TESS_OK) goto out;
     if (total < TESS_HEADER_BYTES) {
         rc = TESS_ERR_FORMAT;
@@ -1327,41 +1416,34 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     oo.key_provider = opt->key_provider;
     oo.key_provider_ctx = opt->key_provider_ctx;
 
-    /* resolve provider ids (keys are owned by this call) */
-    {
-        tess_open_options ro;
-        tess_key *owned[TESS_MAX_OWNED_KEYS];
-        size_t n_owned = 0;
-
-        rc = open_resolve_keys(&oo, &ro, owned, &n_owned);
-        if (rc != TESS_OK) {
-            free(blocks);
-            blocks = NULL;
-            goto out;
-        }
-        rc = open_begin(hdr_raw, TESS_HEADER_BYTES, blocks, blocks_len, &ro,
-                        &st_ctx);
+    /* resolve provider ids (keys are owned by this call and freed at out) */
+    rc = open_resolve_keys(&oo, &ro, owned, &n_owned);
+    if (rc != TESS_OK) {
         free(blocks);
         blocks = NULL;
-        if (rc != TESS_OK) {
-            free_owned_keys(owned, n_owned);
-            goto out;
-        }
-        /* keep resolved keys alive while oo/ro pointers are in use */
-        memcpy(&oo, &ro, sizeof oo);
-        /* signer check below uses oo.required_signer (may be resolved) */
-        (void)n_owned;
+        goto out;
     }
+    /* NOTE: st_ctx.opt must point at `ro`, which lives until `out:` */
+    rc = open_begin(hdr_raw, TESS_HEADER_BYTES, blocks, blocks_len, &ro,
+                    &st_ctx);
+    free(blocks);
+    blocks = NULL;
+    if (rc != TESS_OK) goto out;
+    /* keep resolved keys visible through oo for the checks below */
+    memcpy(&oo, &ro, sizeof oo);
 
     if ((st_ctx.h.flags & TESS_FLAG_SIGNED) != 0) {
-        if (opt->required_signer != NULL &&
-            memcmp(opt->required_signer->e_pk, st_ctx.h.sender_ed_pk,
+        if (oo.required_signer != NULL &&
+            memcmp(oo.required_signer->e_pk, st_ctx.h.sender_ed_pk,
                    sizeof st_ctx.h.sender_ed_pk) != 0) {
             rc = TESS_ERR_SIGNER;
             goto out_state;
         }
         tess_verify_begin(&vctx);
         verifying = 1;
+    } else if (oo.required_signer != NULL) {
+        rc = TESS_ERR_SIGNER; /* a pinned signer requires a signed message */
+        goto out_state;
     }
 
     rc = pw_open(&pw, out_path);
@@ -1455,16 +1537,26 @@ out_state:
     if (rc == TESS_OK) {
         rc = pw_commit(&pw, out_path);
         pw_active = 0;
-        if (rc == TESS_OK && opt->out_signed != NULL) {
-            *opt->out_signed =
-                (st_ctx.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
-        }    }
+        if (rc == TESS_OK) {
+            int signed_msg = (st_ctx.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
+            tess_open_file_options *mut =
+                (tess_open_file_options *)(uintptr_t)opt;
+            if (opt->out_signed != NULL) *opt->out_signed = signed_msg;
+            if (signed_msg) {
+                memcpy(mut->out_signer_pk, st_ctx.h.sender_ed_pk,
+                       sizeof mut->out_signer_pk);
+            } else {
+                memset(mut->out_signer_pk, 0, sizeof mut->out_signer_pk);
+            }
+        }
+    }
     tess_master_free(&st_ctx.master);
 
 out:
     if (pw_active) pw_abort(&pw);
     if (ct) sodium_memzero(ct, (size_t)st_ctx.h.chunk_size + 16);
     free(ct);
+    free_owned_keys(owned, n_owned);
     if (in) fclose(in);
     return rc;
 }
@@ -1478,29 +1570,32 @@ tess_status tess_rekey_file(const char *in_path, const char *out_path,
                             const tess_open_file_options *open_opt,
                             const tess_seal_file_options *rekey_opt) {
     char tmp[4096];
+    uint32_t rnd;
     tess_status rc;
+    int n;
 
     if (in_path == NULL || out_path == NULL || open_opt == NULL ||
         rekey_opt == NULL) {
         return TESS_ERR_INVALID_ARG;
     }
-    if (snprintf(tmp, sizeof tmp, "%s.tess-rekey.tmp", out_path) >=
-        (int)sizeof tmp) {
+    /* randomized temp name: predictable plaintext paths invite tampering */
+    rnd = randombytes_random();
+    n = snprintf(tmp, sizeof tmp, "%s.tess-rekey.%08x.tmp", out_path, rnd);
+    if (n < 0 || n >= (int)sizeof tmp) {
         return TESS_ERR_INVALID_ARG;
     }
 
     /* decrypt to a temporary file next to the output (atomic, verified) */
     rc = tess_open_file(in_path, tmp, open_opt);
     if (rc != TESS_OK) {
-        remove(tmp);
+        wipe_file(tmp);
         return rc;
     }
-    /* re-encrypt the temporary plaintext into the final output */
+    /* re-encrypt the temporary plaintext into the final output.  On failure
+     * tess_seal_file leaves `out_path` untouched (atomic .part handling),
+     * so an existing message at out_path survives a failed rekey. */
     rc = tess_seal_file(tmp, out_path, rekey_opt);
-    remove(tmp);
-    if (rc != TESS_OK) {
-        remove(out_path); /* never leave a partial message behind */
-    }
+    wipe_file(tmp); /* the temp file holds plaintext — scrub before unlink */
     return rc;
 }
 

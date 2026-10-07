@@ -1,4 +1,15 @@
 /* tess_util.c — endian helpers, allocation, armor, file I/O helpers. */
+#ifdef _WIN32
+#include <io.h>
+#else
+/* Large-file seeks (fseeko/ftello) and POSIX file helpers. */
+#if !defined(_POSIX_C_SOURCE)
+#define _POSIX_C_SOURCE 200809L
+#endif
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 #include "tess_internal.h"
 
 #include <errno.h>
@@ -9,13 +20,15 @@
 #include <windows.h>
 #endif
 
-/* POSIX rename() overwrites atomically; Windows' rename() does not. */
+/* POSIX rename() overwrites atomically; Windows' rename() does not.
+ *
+ * Never fall back to remove(to)+rename(from,to): if the second rename then
+ * fails (permissions, EXDEV), the destination is destroyed for nothing. */
 int tess_replace_file(const char *from, const char *to) {
 #ifdef _WIN32
     if (MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING) != 0) return 0;
 #endif
     if (rename(from, to) == 0) return 0;
-    if (remove(to) == 0) return rename(from, to);
     return -1;
 }
 
@@ -170,6 +183,7 @@ tess_status tess_dearmor(const char *text, uint8_t **out, size_t *out_len) {
 
     raw = (uint8_t *)malloc(n + 1);
     if (raw == NULL) {
+        sodium_memzero(b64, n + 1);
         free(b64);
         return TESS_ERR_NOMEM;
     }
@@ -193,9 +207,52 @@ tess_status tess_dearmor(const char *text, uint8_t **out, size_t *out_len) {
 /* file helpers                                                        */
 /* ------------------------------------------------------------------ */
 
+#ifdef _WIN32
+#define TESS_FSEEK64(f, off, whence) _fseeki64((f), (off), (whence))
+#define TESS_FTELL64(f) _ftelli64((f))
+#else
+#define TESS_FSEEK64(f, off, whence) fseeko((f), (off), (whence))
+#define TESS_FTELL64(f) ftello((f))
+#endif
+
+/* 64-bit file size; leaves the stream positioned at the start. */
+tess_status tess_file_size(FILE *f, uint64_t *out) {
+    int64_t sz;
+    if (f == NULL || out == NULL) return TESS_ERR_INVALID_ARG;
+    if (TESS_FSEEK64(f, 0, SEEK_END) != 0) return TESS_ERR_IO;
+    sz = TESS_FTELL64(f);
+    if (sz < 0) return TESS_ERR_IO;
+    if (TESS_FSEEK64(f, 0, SEEK_SET) != 0) return TESS_ERR_IO;
+    *out = (uint64_t)sz;
+    return TESS_OK;
+}
+
+/* Flush file data to stable storage before publishing (rename/close). */
+tess_status tess_sync_file(FILE *f) {
+    if (f == NULL) return TESS_ERR_INVALID_ARG;
+    if (fflush(f) != 0) return TESS_ERR_IO;
+#ifdef _WIN32
+    if (_commit(_fileno(f)) != 0) return TESS_ERR_IO;
+#else
+    if (fsync(fileno(f)) != 0) return TESS_ERR_IO;
+#endif
+    return TESS_OK;
+}
+
+/* Restrict a file we create to owner-only access (keys, plaintexts,
+ * ciphertext .part files). No-op on Windows: ACLs inherit from the
+ * directory instead, so Unix-style mode bits are best-effort there. */
+void tess_restrict_file(FILE *f) {
+#ifdef _WIN32
+    (void)f;
+#else
+    if (f != NULL) (void)fchmod(fileno(f), S_IRUSR | S_IWUSR);
+#endif
+}
+
 tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len) {
     FILE *f;
-    long sz;
+    uint64_t sz = 0;
     uint8_t *p;
     size_t got;
 
@@ -205,18 +262,13 @@ tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len) {
 
     f = fopen(path, "rb");
     if (f == NULL) return TESS_ERR_IO;
-    if (fseek(f, 0, SEEK_END) != 0) {
+    if (tess_file_size(f, &sz) != TESS_OK) {
         fclose(f);
         return TESS_ERR_IO;
     }
-    sz = ftell(f);
-    if (sz < 0) {
+    if (sz > (uint64_t)(SIZE_MAX - 1)) { /* file too large for this platform */
         fclose(f);
-        return TESS_ERR_IO;
-    }
-    if (fseek(f, 0, SEEK_SET) != 0) {
-        fclose(f);
-        return TESS_ERR_IO;
+        return TESS_ERR_NOMEM;
     }
     p = (uint8_t *)malloc((size_t)sz + 1);
     if (p == NULL) {
@@ -235,8 +287,10 @@ tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len) {
     return TESS_OK;
 }
 
-static void make_part_path(const char *path, char *part, size_t cap) {
-    snprintf(part, cap, "%s.part", path);
+static int make_part_path(const char *path, char *part, size_t cap) {
+    int n = snprintf(part, cap, "%s.part", path);
+    if (n < 0 || (size_t)n >= cap) return -1;
+    return 0;
 }
 
 tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
@@ -245,11 +299,14 @@ tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
     FILE *f;
     size_t wrote;
 
-    make_part_path(path, part, sizeof part);
+    if (make_part_path(path, part, sizeof part) != 0) {
+        return TESS_ERR_INVALID_ARG;
+    }
     f = fopen(part, "wb");
     if (f == NULL) return TESS_ERR_IO;
+    tess_restrict_file(f);
     wrote = len ? fwrite(buf, 1, len, f) : 0;
-    if (wrote != len || fflush(f) != 0) {
+    if (wrote != len || tess_sync_file(f) != TESS_OK) {
         fclose(f);
         remove(part);
         return TESS_ERR_IO;

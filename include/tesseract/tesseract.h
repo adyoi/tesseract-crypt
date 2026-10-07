@@ -128,6 +128,10 @@ typedef struct tess_seal_options {
     int sign;
     const char *passphrase;
     uint32_t chunk_size;
+    /** Argon2id cost for passphrase mode (0 = default; capped by the same
+     *  anti-DoS limits that readers enforce: <= 16 ops, <= 4 GiB). */
+    uint32_t kdf_ops;
+    uint64_t kdf_mem;
     tess_key_provider key_provider;
     void *key_provider_ctx;
 } tess_seal_options;
@@ -177,6 +181,8 @@ typedef struct tess_seal_file_options {
     int sign;
     const char *passphrase;
     uint32_t chunk_size;
+    uint32_t kdf_ops; /* passphrase mode; 0 = default (see tess_seal_options) */
+    uint64_t kdf_mem;
     tess_key_provider key_provider;
     void *key_provider_ctx;
 } tess_seal_file_options;
@@ -188,6 +194,7 @@ typedef struct tess_open_file_options {
     const tess_key *required_signer;
     const char *required_signer_id;
     int *out_signed;
+    uint8_t out_signer_pk[32]; /* filled only when the message is signed */
     tess_key_provider key_provider;
     void *key_provider_ctx;
 } tess_open_file_options;
