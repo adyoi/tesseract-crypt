@@ -145,7 +145,7 @@ endif()
 if(TESS_BUILD_TESTS)
     enable_testing()
 
-    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi rekey)
+    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi rekey harden)
     foreach(t ${TESS_TESTS})
         add_executable(test_${t} tests/test_${t}.c)
         target_link_libraries(test_${t} PRIVATE tesseract::crypt)
@@ -156,6 +156,15 @@ if(TESS_BUILD_TESTS)
     # Known-answer tests read fixtures from the source tree.
     target_compile_definitions(test_vectors PRIVATE
         TESS_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+
+    # CLI end-to-end regression (exit codes, stdin/stdout binary pipes).
+    if(TESS_BUILD_CLI)
+        add_test(NAME cli
+            COMMAND ${CMAKE_COMMAND}
+                -DTESS_CLI_EXE=$<TARGET_FILE:${TESS_CLI_TARGET}>
+                -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_test.cmake)
+    endif()
 endif()
 
 # ------------------------------------------------------------------ #
