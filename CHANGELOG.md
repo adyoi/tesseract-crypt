@@ -48,6 +48,7 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
     membangun ulang DEB (CPack) + repo `dists/stable` + `pool/`, ditandatangani
     GPG RSA-4096 (`InRelease` + `Release.gpg`); kunci publik di-commit di
     `docs/apt/tesseract-crypt.asc`; instruksi `apt install` di README EN/ID.
+- **CLI**: subcommand `rekey` (key rotation) untuk rewrap pesan ke penerima/pengirim baru dengan verifikasi signer lama.
 - **Docs**: landing page, referensi CLI, spesifikasi format; man page
     `tesseract-crypt(1)` (alias `tscrypt(1)`).
 

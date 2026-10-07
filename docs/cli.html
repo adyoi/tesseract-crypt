@@ -118,6 +118,21 @@
       <tr><td><code>-s FILE.sig</code></td><td>Signature (required).</td></tr>
     </table>
 
+    <h3 id="rekey"><span class="mono">rekey</span></h3>
+    <p>Re-encrypts an existing message for new recipients/sender (key rotation). Can verify the old required signer and preserve signing. Output is armored to TTY by default when writing to stdout.</p>
+    <table>
+      <tr><th>Option</th><th>Description</th></tr>
+      <tr><td><code>-k OLD_KEY</code></td><td>Old recipient private key (or use <code>--old-passphrase</code> for passphrase mode).</td></tr>
+      <tr><td><code>--old-passphrase PASS</code></td><td>Old passphrase if decrypting symmetric message.</td></tr>
+      <tr><td><code>-i IN</code></td><td>Input message (default: <code>stdin</code>).</td></tr>
+      <tr><td><code>-o OUT</code></td><td>Output message (default: <code>stdout</code>).</td></tr>
+      <tr><td><code>-r RECIPIENT.pub</code></td><td>New recipient (repeat for multi-recipient).</td></tr>
+      <tr><td><code>-s SENDER.key</code></td><td>New sender private key (optional).</td></tr>
+      <tr><td><code>--require-signer SIGNER.pub</code></td><td>Require original signer.</td></tr>
+      <tr><td><code>--chunk-size N</code></td><td>Chunk size (4096 … 16777216).</td></tr>
+      <tr><td><code>--no-sign</code></td><td>Disable signing of new message.</td></tr>
+    </table>
+
     <h3 id="inspect"><span class="mono">inspect</span></h3>
     <p>Reads the message header without decrypting: format version, suite,
     mode, number of recipients, chunk size, estimated plaintext length, and the signer fingerprint.</p>
@@ -151,7 +166,7 @@ signed         : yes</pre>
       <tr><td><code>0</code></td><td>Success.</td></tr>
       <tr><td><code>1</code></td><td>General error (I/O, format, keys).</td></tr>
       <tr><td><code>2</code></td><td>Wrong usage (invalid or missing arguments).</td></tr>
-      <tr><td><code>3</code></td><td>Authentication failure — AEAD, signature, passphrase mismatch, or message not addressed to this key.</td></tr>
+      <tr><td><code>3</code></td><td>Authentication failure — AEAD, signature, required signer, recipient mismatch, or passphrase mismatch. No output file written on failure.</td></tr>
     </table>
   </section>
 
@@ -180,6 +195,9 @@ tesseract-crypt verify -k alice.pub -i release.tar.gz -s release.tar.gz.sig
 <span class="c"># send the same file to a whole team (repeat -r; format v2)</span>
 tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
                         -k alice.key -i secret.txt -o team.enc
+
+<span class="c"># rekey for Charlie, require original signer Alice</span>
+tesseract-crypt rekey -k bob.key -i secret.enc -o secret.rekey -r charlie.pub --require-signer alice.pub
 
 <span class="c"># inspect header &amp; fingerprint</span>
 tesseract-crypt inspect -i secret.enc

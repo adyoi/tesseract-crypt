@@ -118,6 +118,21 @@
       <tr><td><code>-s FILE.sig</code></td><td>Tanda tangan (wajib).</td></tr>
     </table>
 
+    <h3 id="rekey"><span class="mono">rekey</span></h3>
+    <p>Mendekripsi ulang pesan untuk penerima/pengirim baru (rotasi kunci). Dapat memverifikasi signer lama dan menjaga tanda tangan.</p>
+    <table>
+      <tr><th>Opsi</th><th>Deskripsi</th></tr>
+      <tr><td><code>-k OLD_KEY</code></td><td>Kunci privat penerima lama (atau pakai <code>--old-passphrase</code> untuk mode passphrase).</td></tr>
+      <tr><td><code>--old-passphrase PASS</code></td><td>Kata sandi lama jika pesan bersifat simetris.</td></tr>
+      <tr><td><code>-i IN</code></td><td>Input pesan (default: <code>stdin</code>).</td></tr>
+      <tr><td><code>-o OUT</code></td><td>Output pesan (default: <code>stdout</code>).</td></tr>
+      <tr><td><code>-r RECIPIENT.pub</code></td><td>Penerima baru (ulangi untuk multi-penerima).</td></tr>
+      <tr><td><code>-s SENDER.key</code></td><td>Kunci privat pengirim baru (opsional).</td></tr>
+      <tr><td><code>--require-signer SIGNER.pub</code></td><td>Wajibkan signer asli.</td></tr>
+      <tr><td><code>--chunk-size N</code></td><td>Ukuran chunk (4096 … 16777216).</td></tr>
+      <tr><td><code>--no-sign</code></td><td>Nonaktifkan tanda tangan pada pesan baru.</td></tr>
+    </table>
+
     <h3 id="inspect"><span class="mono">inspect</span></h3>
     <p>Membaca header pesan tanpa mendekripsi: versi format, suite, mode,
     jumlah penerima, ukuran chunk, perkiraan panjang plaintext, dan fingerprint penanda tangan.</p>
@@ -151,7 +166,7 @@ signed         : yes</pre>
       <tr><td><code>0</code></td><td>Sukses.</td></tr>
       <tr><td><code>1</code></td><td>Kesalahan umum (I/O, format, kunci).</td></tr>
       <tr><td><code>2</code></td><td>Penggunaan salah (argumen tidak valid / tidak lengkap).</td></tr>
-      <tr><td><code>3</code></td><td>Otentikasi gagal — AEAD, tanda tangan, kata sandi salah, atau pesan tidak ditujukan untuk kunci ini.</td></tr>
+      <tr><td><code>3</code></td><td>Otentikasi gagal — AEAD, tanda tangan, signer wajib, penerima tidak sesuai, atau kata sandi salah. Tidak ada berkas output yang ditulis saat gagal.</td></tr>
     </table>
   </section>
 
@@ -180,6 +195,9 @@ tesseract-crypt verify -k alice.pub -i rilis.tar.gz -s rilis.tar.gz.sig
 <span class="c"># kirim berkas yang sama ke satu tim (ulangi -r; format v2)</span>
 tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
                         -k alice.key -i rahasia.txt -o tim.enc
+
+<span class="c"># rekey untuk Charlie, wajibkan signer asli Alice</span>
+tesseract-crypt rekey -k bob.key -i rahasia.enc -o rahasia.rekey -r charlie.pub --require-signer alice.pub
 
 <span class="c"># inspeksi header & fingerprint</span>
 tesseract-crypt inspect -i rahasia.enc
