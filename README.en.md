@@ -25,6 +25,29 @@ passphrase mode.
 | **Multi-recipient (v2)** | One message for many recipients: a random data key wrapped per recipient (format v2) |
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
 
+## Install (APT — Debian/Ubuntu amd64)
+
+Prebuilt `tesseract-crypt` binaries are served from an APT repository hosted
+on GitHub Pages and signed with GPG:
+
+```bash
+# 1. install the repository public key
+curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
+
+# 2. register the repository
+echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
+
+# 3. install (the short alias tscrypt comes along)
+sudo apt update
+sudo apt install tesseract-crypt
+```
+
+> The repository is rebuilt (and re-signed) on every push to `main`.
+> Verify the key: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
+> → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
+
 ## Build
 
 ```bash

@@ -44,6 +44,10 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
     privat lain yang bukan penerima ditolak eksplisit (`TESS_ERR_RECIPIENT`,
     exit 3). CLI: ulangi `-r`. Tes `tests/test_multi.c` + vektor header v2.
   - GitHub Pages workflow untuk `docs/`.
+  - **APT repository Linux** di GitHub Pages (`/apt`): tiap push `main`
+    membangun ulang DEB (CPack) + repo `dists/stable` + `pool/`, ditandatangani
+    GPG RSA-4096 (`InRelease` + `Release.gpg`); kunci publik di-commit di
+    `docs/apt/tesseract-crypt.asc`; instruksi `apt install` di README EN/ID.
 - **Docs**: landing page, referensi CLI, spesifikasi format; man page
     `tesseract-crypt(1)` (alias `tscrypt(1)`).
 

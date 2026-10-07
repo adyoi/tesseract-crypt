@@ -26,6 +26,29 @@ passphrase.
 | **Multi-penerima (v2)** | Satu pesan untuk banyak penerima: data key acak dibungkus per penerima (format v2) |
 | **Atomic output** | File ditulis ke `.part`, di-rename hanya setelah dekripsi & verifikasi sukses |
 
+## Install (APT — Debian/Ubuntu amd64)
+
+Paket biner `tesseract-crypt` tersedia lewat repository APT yang dihosting
+GitHub Pages dan ditandatangani GPG:
+
+```bash
+# 1. pasang kunci publik repository
+curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
+
+# 2. daftarkan repository
+echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
+
+# 3. install (alias pendek tscrypt ikut terpasang)
+sudo apt update
+sudo apt install tesseract-crypt
+```
+
+> Repository disusun ulang (ditandatangani ulang) setiap push ke `main`.
+> Verifikasi kunci: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
+> → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
+
 ## Build
 
 ```bash
