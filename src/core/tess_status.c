@@ -25,6 +25,8 @@ const char *tess_strerror(tess_status st) {
         return "unsupported algorithm or version";
     case TESS_ERR_INTERNAL:
         return "internal error";
+    case TESS_ERR_RECIPIENT:
+        return "message is not addressed to this key";
     default:
         return "unknown error";
     }

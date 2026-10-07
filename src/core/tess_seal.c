@@ -192,46 +192,97 @@ static uint32_t pick_chunk(uint32_t requested) {
     return requested;
 }
 
+/* on-wire size of the recipient segment (0 unless multi-recipient v2).
+ * Returns 0 for invalid counts; seal_prepare() rejects those inputs. */
+static size_t seal_blocks_len(const tess_seal_options *opt) {
+    if (opt == NULL || opt->recipients == NULL) return 0;
+    if (opt->recipient_count == 0 ||
+        opt->recipient_count > TESS_MAX_RECIPIENTS) {
+        return 0;
+    }
+    return (size_t)opt->recipient_count * TESS_RECIPIENT_BLOCK_BYTES;
+}
+
 /* Build the header for sealing and derive the master key.
  * For file sealing, `pt`/`pt_len` describe the data to be signed (the first
  * bytes are enough for the caller-provided signature callback alternative;
- * the buffer seal signs the whole buffer directly). */
+ * the buffer seal signs the whole buffer directly).  `blocks` receives the
+ * per-recipient key blocks of a format-v2 message (NULL for v1). */
 static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
                                 const uint8_t *signature_or_null,
                                 const tess_seal_options *opt,
                                 uint8_t hdr_raw[TESS_HEADER_BYTES],
-                                tess_header *h, tess_master *master) {
+                                uint8_t *blocks, tess_header *h,
+                                tess_master *master) {
     tess_status st;
+    uint8_t eph_sk[crypto_box_SECRETKEYBYTES];
+    const uint8_t *sender_sk =
+        opt ? (opt->sender_secret ? opt->sender_secret->x_sk : NULL) : NULL;
+    int multi = 0;
+    int have_eph = 0;
 
     if (opt == NULL) return TESS_ERR_INVALID_ARG;
-    tess_header_init(h);
-    h->chunk_size = pick_chunk(opt->chunk_size);
-    h->pt_len = pt_len;
+    memset(eph_sk, 0, sizeof eph_sk);
 
     if (opt->recipient_public != NULL && opt->passphrase != NULL) {
         return TESS_ERR_INVALID_ARG; /* mode must be unambiguous */
     }
+    if (opt->recipients != NULL) {
+        size_t i;
+        if (opt->recipient_public != NULL || opt->passphrase != NULL) {
+            return TESS_ERR_INVALID_ARG; /* mode must be unambiguous */
+        }
+        if (opt->recipient_count == 0 ||
+            opt->recipient_count > TESS_MAX_RECIPIENTS) {
+            return TESS_ERR_INVALID_ARG;
+        }
+        for (i = 0; i < opt->recipient_count; i++) {
+            const tess_key *rk = opt->recipients[i];
+            if (rk == NULL || all_zero(rk->x_pk, sizeof rk->x_pk)) {
+                return TESS_ERR_INVALID_ARG;
+            }
+        }
+    }
 
-    if (opt->recipient_public != NULL) {
-        uint8_t eph_sk[crypto_box_SECRETKEYBYTES];
+    tess_header_init(h);
+    h->chunk_size = pick_chunk(opt->chunk_size);
+    h->pt_len = pt_len;
 
+    if (opt->recipient_public != NULL || opt->recipients != NULL) {
+        multi = (opt->recipients != NULL);
         h->mode = TESS_MODE_PUBLICKEY;
+        if (multi) {
+            h->version = TESS_VERSION_MULTI;
+            h->recip_count = (uint32_t)opt->recipient_count;
+        }
         randombytes_buf(h->salt, sizeof h->salt);
         randombytes_buf(h->nonce, sizeof h->nonce);
-        memcpy(h->recipient_pk, opt->recipient_public->x_pk,
-               sizeof h->recipient_pk);
+        if (!multi) {
+            memcpy(h->recipient_pk, opt->recipient_public->x_pk,
+                   sizeof h->recipient_pk);
+        }
 
         randombytes_buf(eph_sk, sizeof eph_sk);
+        have_eph = 1;
         if (crypto_scalarmult_base(h->eph_pk, eph_sk) != 0) {
             sodium_memzero(eph_sk, sizeof eph_sk);
+            have_eph = 0;
             return TESS_ERR_INTERNAL;
         }
-        st = tess_derive_master_pk(
-            eph_sk, opt->recipient_public->x_pk,
-            opt->sender_secret ? opt->sender_secret->x_sk : NULL, h->salt,
-            master);
-        sodium_memzero(eph_sk, sizeof eph_sk);
-        if (st != TESS_OK) return st;
+        if (multi) {
+            /* v2: a fresh random data key protects the payload; it is
+             * wrapped once per recipient below (domain-separated by the
+             * recipient key itself). */
+            randombytes_buf(master->key, sizeof master->key);
+        } else {
+            st = tess_derive_master_pk(eph_sk, opt->recipient_public->x_pk,
+                                       sender_sk, h->salt, master);
+            if (st != TESS_OK) {
+                sodium_memzero(eph_sk, sizeof eph_sk);
+                have_eph = 0;
+                return st;
+            }
+        }
 
         if (opt->sender_secret != NULL) {
             memcpy(h->sender_x_pk, opt->sender_secret->x_pk,
@@ -257,6 +308,7 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
         if (opt->sender_secret == NULL || !opt->sender_secret->is_secret ||
             opt->sender_secret->is_locked) {
             tess_master_free(master);
+            if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
             return TESS_ERR_INVALID_ARG;
         }
         if (signature_or_null != NULL) {
@@ -265,6 +317,7 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
             st = tess_sign(pt, pt_len, opt->sender_secret, h->signature);
             if (st != TESS_OK) {
                 tess_master_free(master);
+                if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
                 return st;
             }
         }
@@ -276,9 +329,55 @@ static tess_status seal_prepare(const uint8_t *pt, size_t pt_len,
     st = tess_header_validate(h);
     if (st != TESS_OK) {
         tess_master_free(master);
+        if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
         return st;
     }
-    return tess_header_serialize(h, hdr_raw);
+    st = tess_header_serialize(h, hdr_raw);
+    if (st != TESS_OK) {
+        tess_master_free(master);
+        if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
+        return st;
+    }
+
+    /* multi-recipient: wrap the data key under each recipient's DH secret,
+     * the block layout is [recipient X25519 pk (32) || sealed key (48)]. */
+    if (multi) {
+        size_t i;
+        if (blocks == NULL) {
+            tess_master_free(master);
+            if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
+            return TESS_ERR_INVALID_ARG;
+        }
+        for (i = 0; i < h->recip_count; i++) {
+            tess_master wrap;
+            uint8_t aad[TESS_HEADER_BYTES + 32];
+            uint8_t *blk = blocks + i * TESS_RECIPIENT_BLOCK_BYTES;
+            unsigned long long mlen = 0;
+
+            st = tess_derive_master_pk(eph_sk, opt->recipients[i]->x_pk,
+                                       sender_sk, h->salt, &wrap);
+            if (st != TESS_OK) break;
+            memcpy(blk, opt->recipients[i]->x_pk, 32);
+            memcpy(aad, hdr_raw, TESS_HEADER_BYTES);
+            memcpy(aad + TESS_HEADER_BYTES, blk, 32);
+            if (crypto_aead_xchacha20poly1305_ietf_encrypt(
+                    blk + 32, &mlen, master->key, sizeof master->key, aad,
+                    sizeof aad, NULL, h->nonce, wrap.key) != 0) {
+                tess_master_free(&wrap);
+                st = TESS_ERR_INTERNAL;
+                break;
+            }
+            tess_master_free(&wrap);
+        }
+        if (st != TESS_OK) {
+            tess_master_free(master);
+            if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
+            return st;
+        }
+    }
+
+    if (have_eph) sodium_memzero(eph_sk, sizeof eph_sk);
+    return TESS_OK;
 }
 
 /* encrypt one chunk; `ct` must have room for pt_len + 16 */
@@ -316,6 +415,8 @@ tess_status tess_seal_buf(const uint8_t *pt, size_t pt_len,
     uint8_t hdr_raw[TESS_HEADER_BYTES];
     tess_master master;
     uint8_t *buf = NULL;
+    uint8_t *blocks = NULL;
+    size_t blocks_len = 0;
     size_t total, pos, i, nchunks, cs;
     tess_status st;
 
@@ -325,26 +426,44 @@ tess_status tess_seal_buf(const uint8_t *pt, size_t pt_len,
     *out = NULL;
     *out_len = 0;
 
+    blocks_len = seal_blocks_len(opt);
+    if (blocks_len > 0) {
+        blocks = (uint8_t *)malloc(blocks_len);
+        if (blocks == NULL) return TESS_ERR_NOMEM;
+    }
+
     memset(&master, 0, sizeof master);
-    st = seal_prepare(pt, pt_len, NULL, opt, hdr_raw, &h, &master);
-    if (st != TESS_OK) return st;
+    st = seal_prepare(pt, pt_len, NULL, opt, hdr_raw, blocks, &h, &master);
+    if (st != TESS_OK) {
+        free(blocks);
+        return st;
+    }
 
     cs = h.chunk_size;
     nchunks = pt_len == 0 ? 1 : (pt_len + cs - 1) / cs;
-    if (nchunks > (SIZE_MAX - TESS_HEADER_BYTES) / (cs + 16 + 4)) {
+    if (nchunks >
+        (SIZE_MAX - TESS_HEADER_BYTES - blocks_len) / (cs + 16 + 4)) {
         tess_master_free(&master);
+        free(blocks);
         return TESS_ERR_NOMEM;
     }
-    total = TESS_HEADER_BYTES + nchunks * (cs + 16 + 4); /* upper bound */
+    total = TESS_HEADER_BYTES + blocks_len + nchunks * (cs + 16 + 4);
 
     buf = (uint8_t *)malloc(total);
     if (buf == NULL) {
         tess_master_free(&master);
+        free(blocks);
         return TESS_ERR_NOMEM;
     }
 
     memcpy(buf, hdr_raw, TESS_HEADER_BYTES);
     pos = TESS_HEADER_BYTES;
+    if (blocks_len > 0) {
+        memcpy(buf + pos, blocks, blocks_len);
+        pos += blocks_len;
+    }
+    free(blocks);
+    blocks = NULL;
 
     for (i = 0; i < nchunks; i++) {
         size_t off = i * cs;
@@ -386,30 +505,88 @@ typedef struct open_state {
     uint8_t hdr_raw[TESS_HEADER_BYTES];
     tess_master master;
     const tess_open_options *opt;
+    size_t body_off; /* first ciphertext byte (after header + key blocks) */
 } open_state;
 
-static tess_status open_begin(const uint8_t *ct, size_t ct_len,
+static tess_status open_begin(const uint8_t *hdr_raw, size_t hdr_len,
+                              const uint8_t *blocks, size_t blocks_len,
                               const tess_open_options *opt, open_state *st) {
     tess_status rc;
 
-    if (ct == NULL || opt == NULL) return TESS_ERR_INVALID_ARG;
-    if (ct_len < TESS_HEADER_BYTES) return TESS_ERR_FORMAT;
+    if (hdr_raw == NULL || opt == NULL) return TESS_ERR_INVALID_ARG;
+    if (hdr_len < TESS_HEADER_BYTES) return TESS_ERR_INVALID_ARG;
     memset(st, 0, sizeof *st);
     st->opt = opt;
-    memcpy(st->hdr_raw, ct, TESS_HEADER_BYTES);
+    memcpy(st->hdr_raw, hdr_raw, TESS_HEADER_BYTES);
+    st->body_off = TESS_HEADER_BYTES;
 
     rc = tess_header_parse(st->hdr_raw, &st->h);
     if (rc != TESS_OK) return rc;
 
     if (st->h.mode == TESS_MODE_PUBLICKEY) {
+        const uint8_t *my_pk = NULL;
+
         if (opt->recipient_secret == NULL || opt->passphrase != NULL) {
             return TESS_ERR_INVALID_ARG;
         }
         if (!opt->recipient_secret->is_secret) return TESS_ERR_INVALID_ARG;
         if (opt->recipient_secret->is_locked) return TESS_ERR_PASSPHRASE;
-        rc = tess_derive_master_open(&st->h, opt->recipient_secret->x_sk,
-                                     &st->master);
-        if (rc != TESS_OK) return rc;
+        my_pk = opt->recipient_secret->x_pk;
+
+        if (st->h.version == 1) {
+            /* message addressed to a single recipient: check it is us */
+            if (memcmp(st->h.recipient_pk, my_pk,
+                       sizeof st->h.recipient_pk) != 0) {
+                return TESS_ERR_RECIPIENT;
+            }
+            rc = tess_derive_master_open(&st->h, opt->recipient_secret->x_sk,
+                                         &st->master);
+            if (rc != TESS_OK) return rc;
+        } else {
+            /* format v2: find our key block and unwrap the data key */
+            size_t need = (size_t)st->h.recip_count * TESS_RECIPIENT_BLOCK_BYTES;
+            size_t i;
+            tess_master wrap;
+            int found = 0;
+
+            if (blocks == NULL || blocks_len < need) return TESS_ERR_FORMAT;
+            rc = tess_derive_master_open(&st->h, opt->recipient_secret->x_sk,
+                                         &wrap);
+            if (rc != TESS_OK) return rc;
+            for (i = 0; i < st->h.recip_count; i++) {
+                const uint8_t *blk = blocks + i * TESS_RECIPIENT_BLOCK_BYTES;
+                if (memcmp(blk, my_pk, 32) == 0) {
+                    uint8_t aad[TESS_HEADER_BYTES + 32];
+                    uint8_t data_key[crypto_kdf_KEYBYTES];
+                    unsigned long long mlen = 0;
+                    int bad;
+
+                    memcpy(aad, st->hdr_raw, TESS_HEADER_BYTES);
+                    memcpy(aad + TESS_HEADER_BYTES, blk, 32);
+                    bad = crypto_aead_xchacha20poly1305_ietf_decrypt(
+                        data_key, &mlen, NULL, blk + 32,
+                        (unsigned long long)(TESS_RECIPIENT_BLOCK_BYTES - 32),
+                        aad, sizeof aad, st->h.nonce, wrap.key);
+                    if (bad != 0) {
+                        sodium_memzero(data_key, sizeof data_key);
+                        tess_master_free(&wrap);
+                        return TESS_ERR_CRYPTO;
+                    }
+                    if (mlen != sizeof st->master.key) {
+                        sodium_memzero(data_key, sizeof data_key);
+                        tess_master_free(&wrap);
+                        return TESS_ERR_INTERNAL;
+                    }
+                    memcpy(st->master.key, data_key, sizeof st->master.key);
+                    sodium_memzero(data_key, sizeof data_key);
+                    found = 1;
+                    break;
+                }
+            }
+            tess_master_free(&wrap);
+            if (!found) return TESS_ERR_RECIPIENT;
+            st->body_off = TESS_HEADER_BYTES + need;
+        }
     } else {
         if (opt->recipient_secret != NULL) return TESS_ERR_INVALID_ARG;
         if (opt->passphrase == NULL || opt->passphrase[0] == '\0') {
@@ -491,11 +668,12 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
     *out = NULL;
     *out_len = 0;
 
-    rc = open_begin(ct, ct_len, opt, &st);
+    rc = open_begin(ct, TESS_HEADER_BYTES, ct + TESS_HEADER_BYTES,
+                    ct_len - TESS_HEADER_BYTES, opt, &st);
     if (rc != TESS_OK) return rc;
 
     cap = (st.h.pt_len != UINT64_MAX) ? (size_t)st.h.pt_len
-                                      : (ct_len - TESS_HEADER_BYTES);
+                                      : (ct_len - st.body_off);
     if (cap < 16) cap = 16;
     buf = (uint8_t *)malloc(cap + 1);
     if (buf == NULL) {
@@ -503,7 +681,7 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
         return TESS_ERR_NOMEM;
     }
 
-    pos = TESS_HEADER_BYTES;
+    pos = st.body_off;
     while (pos < ct_len) {
         uint32_t clen;
         int is_final;
@@ -665,6 +843,8 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     uint64_t total_len = 0;
     uint64_t index = 0;
     uint8_t signature[TESS_SIGNATURE_BYTES];
+    uint8_t *blocks = NULL;
+    size_t blocks_len = 0;
     int have_signature = 0;
     tess_seal_options so;
     tess_status st = TESS_OK;
@@ -694,14 +874,28 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
 
     tess_seal_options_init(&so);
     so.recipient_public = opt->recipient_public;
+    so.recipients = opt->recipients;
+    so.recipient_count = opt->recipient_count;
     so.sender_secret = opt->sender_secret;
     so.sign = 0;
     so.passphrase = opt->passphrase;
     so.chunk_size = opt->chunk_size;
 
+    blocks_len = seal_blocks_len(&so);
+    if (blocks_len > 0) {
+        blocks = (uint8_t *)malloc(blocks_len);
+        if (blocks == NULL) {
+            st = TESS_ERR_NOMEM;
+            goto done;
+        }
+    }
     st = seal_prepare(NULL, (size_t)total_len, have_signature ? signature : NULL,
-                      &so, hdr_raw, &h, &master);
-    if (st != TESS_OK) goto done;
+                      &so, hdr_raw, blocks, &h, &master);
+    if (st != TESS_OK) {
+        free(blocks);
+        blocks = NULL;
+        goto done;
+    }
 
     cs = h.chunk_size;
     cur = (uint8_t *)malloc(cs + 16);
@@ -716,6 +910,9 @@ tess_status tess_seal_file(const char *in_path, const char *out_path,
     pw_active = 1;
 
     st = pw_write(&pw, hdr_raw, TESS_HEADER_BYTES);
+    if (st == TESS_OK && blocks_len > 0) st = pw_write(&pw, blocks, blocks_len);
+    free(blocks);
+    blocks = NULL;
     if (st != TESS_OK) goto done;
 
     n_cur = fread(cur, 1, cs, in);
@@ -778,6 +975,7 @@ done:
     if (in) fclose(in);
     free(cur);
     free(nxt);
+    free(blocks);
     tess_master_free(&master);
     return st;
 }
@@ -795,6 +993,8 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     uint64_t total = 0, pos = 0;
     uint64_t index = 0, written = 0;
     uint8_t *ct = NULL;
+    uint8_t *blocks = NULL;
+    size_t blocks_len = 0;
     tess_verify_ctx vctx;
     int verifying = 0;
     tess_status rc;
@@ -866,12 +1066,42 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     }
     pos = TESS_HEADER_BYTES;
 
+    /* format v2: read the recipient key blocks that follow the header */
+    {
+        tess_header probe;
+        rc = tess_header_parse(hdr_raw, &probe);
+        if (rc != TESS_OK) goto out;
+        if (probe.version == TESS_VERSION_MULTI) {
+            blocks_len =
+                (size_t)probe.recip_count * TESS_RECIPIENT_BLOCK_BYTES;
+            if (total < (uint64_t)pos + blocks_len) {
+                rc = TESS_ERR_FORMAT;
+                goto out;
+            }
+            blocks = (uint8_t *)malloc(blocks_len);
+            if (blocks == NULL) {
+                rc = TESS_ERR_NOMEM;
+                goto out;
+            }
+            if (fread(blocks, 1, blocks_len, in) != blocks_len) {
+                rc = TESS_ERR_IO;
+                free(blocks);
+                blocks = NULL;
+                goto out;
+            }
+            pos += blocks_len;
+        }
+    }
+
     tess_open_options_init(&oo);
     oo.recipient_secret = opt->recipient_secret;
     oo.passphrase = opt->passphrase;
     oo.required_signer = opt->required_signer;
 
-    rc = open_begin(hdr_raw, TESS_HEADER_BYTES, &oo, &st_ctx);
+    rc = open_begin(hdr_raw, TESS_HEADER_BYTES, blocks, blocks_len, &oo,
+                    &st_ctx);
+    free(blocks);
+    blocks = NULL;
     if (rc != TESS_OK) goto out;
 
     if ((st_ctx.h.flags & TESS_FLAG_SIGNED) != 0) {
@@ -1012,6 +1242,7 @@ tess_status tess_inspect(const uint8_t *data, size_t len,
     info->flags = h.flags;
     info->chunk_size = h.chunk_size;
     info->plaintext_len = h.pt_len;
+    info->recipient_count = h.recip_count;
     info->signed_flag = (h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
     memcpy(info->sender_ed25519_pk, h.sender_ed_pk, sizeof h.sender_ed_pk);
     info->has_sender = !all_zero(h.sender_x_pk, sizeof h.sender_x_pk);

@@ -29,6 +29,10 @@ extern "C" {
 #define TESS_MIN_CHUNK 4096u
 #define TESS_MAX_CHUNK (16u * 1024u * 1024u)
 
+/** Multi-recipient messages (format version 2). */
+#define TESS_MAX_RECIPIENTS 1024u
+#define TESS_RECIPIENT_BLOCK_BYTES 80u /* X25519 pk (32) + wrapped key (48) */
+
 /** Message modes. */
 #define TESS_MODE_PUBLICKEY 1
 #define TESS_MODE_PASSPHRASE 2
@@ -48,7 +52,8 @@ typedef enum tess_status {
     TESS_ERR_SIGNATURE = 7,  /* signature verification failed               */
     TESS_ERR_SIGNER = 8,     /* signer not the required one (pinned)        */
     TESS_ERR_UNSUPPORTED = 9,
-    TESS_ERR_INTERNAL = 10
+    TESS_ERR_INTERNAL = 10,
+    TESS_ERR_RECIPIENT = 11  /* message is not addressed to this key        */
 } tess_status;
 
 /** Opaque key object: a keypair, a private key or a public key. */
@@ -56,12 +61,13 @@ typedef struct tess_key tess_key;
 
 /** Read-only view of a parsed message header (see docs/format.html). */
 typedef struct tess_message_info {
-    int version;              /* format version (currently 1)              */
+    int version;              /* format version (1 or 2)                   */
     int suite;                /* algorithm suite (currently 1)             */
     int mode;                 /* TESS_MODE_PUBLICKEY or TESS_MODE_PASSPHRASE */
     unsigned flags;           /* TESS_FLAG_*                               */
     uint32_t chunk_size;      /* plaintext bytes per chunk                 */
     uint64_t plaintext_len;   /* UINT64_MAX if unknown                     */
+    uint32_t recipient_count; /* v1: 1, v2: N, passphrase: 0               */
     int has_sender;           /* sender X25519 key present                 */
     int signed_flag;          /* message carries an Ed25519 signature       */
     uint8_t sender_ed25519_pk[32]; /* signer identity (zeros if unsigned)  */
@@ -143,10 +149,12 @@ tess_status tess_key_fingerprint(const tess_key *key,
 /* ------------------------------------------------------------------ */
 
 typedef struct tess_seal_options {
-    const tess_key *recipient_public; /* NULL => passphrase mode          */
+    const tess_key *recipient_public; /* single recipient (format v1)      */
+    const tess_key *const *recipients; /* multi-recipient keys (format v2) */
+    size_t recipient_count;           /* ignored when recipients == NULL   */
     const tess_key *sender_secret;    /* NULL => anonymous, unsigned      */
     int sign;                         /* sign plaintext? (needs sender)   */
-    const char *passphrase;           /* used iff recipient_public == NULL */
+    const char *passphrase;           /* used iff no recipients given     */
     uint32_t chunk_size;              /* 0 => TESS_DEFAULT_CHUNK          */
 } tess_seal_options;
 
@@ -184,6 +192,8 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
 
 typedef struct tess_seal_file_options {
     const tess_key *recipient_public;
+    const tess_key *const *recipients; /* multi-recipient (format v2)      */
+    size_t recipient_count;            /* ignored when recipients == NULL  */
     const tess_key *sender_secret;
     int sign;
     const char *passphrase;

@@ -72,6 +72,12 @@
       <p>Dekripsi ditulis ke <code>.part</code> dan hanya di-rename setelah AEAD
       dan tanda tangan sukses. Data tak-terautentikasi tidak pernah muncul di tujuan.</p>
     </article>
+    <article>
+      <h3>Multi-penerima (v2)</h3>
+      <p>Satu pesan untuk satu tim: data key acak dibungkus sekali per penerima
+      memakai rahasia DH X25519 miliknya. Ulangi <code>-r</code> di CLI;
+      non-penerima ditolak secara eksplisit.</p>
+    </article>
   </section>
 
   <section id="quickstart">

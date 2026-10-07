@@ -70,7 +70,7 @@
     Output to a TTY is automatically <em>armored</em> into copy-paste-safe text.</p>
     <table>
       <tr><th>Option</th><th>Description</th></tr>
-      <tr><td><code>-r RECIPIENT.pub</code></td><td>Recipient public key (public-key mode).</td></tr>
+      <tr><td><code>-r RECIPIENT.pub</code></td><td>Recipient public key (public-key mode). Repeat to send to <em>several</em> recipients at once (format v2).</td></tr>
       <tr><td><code>-k SENDER.key</code></td><td>Sender private key for signing (default: anonymous).</td></tr>
       <tr><td><code>-i IN</code></td><td>Input file (default: <code>stdin</code>).</td></tr>
       <tr><td><code>-o OUT</code></td><td>Output file (default: <code>stdout</code>).</td></tr>
@@ -120,11 +120,16 @@
 
     <h3 id="inspect"><span class="mono">inspect</span></h3>
     <p>Reads the message header without decrypting: format version, suite,
-    mode, chunk size, estimated plaintext length, and the signer fingerprint.</p>
+    mode, number of recipients, chunk size, estimated plaintext length, and the signer fingerprint.</p>
     <table>
       <tr><th>Option</th><th>Description</th></tr>
       <tr><td><code>-i FILE</code></td><td>Message (default: <code>stdin</code>). Armored input is detected automatically.</td></tr>
     </table>
+    <pre class="code">$ tesseract-crypt inspect -i team.enc
+format version : 2
+mode           : public-key
+recipients     : 3
+signed         : yes</pre>
 
     <h3 id="info"><span class="mono">info</span></h3>
     <p>Shows the key type (private/locked/public) and its fingerprint.</p>
@@ -146,7 +151,7 @@
       <tr><td><code>0</code></td><td>Success.</td></tr>
       <tr><td><code>1</code></td><td>General error (I/O, format, keys).</td></tr>
       <tr><td><code>2</code></td><td>Wrong usage (invalid or missing arguments).</td></tr>
-      <tr><td><code>3</code></td><td>Authentication failure — AEAD, signature, or passphrase mismatch.</td></tr>
+      <tr><td><code>3</code></td><td>Authentication failure — AEAD, signature, passphrase mismatch, or message not addressed to this key.</td></tr>
     </table>
   </section>
 
@@ -171,6 +176,10 @@ tesseract-crypt encrypt --passphrase -i note.txt -o note.enc
 <span class="c"># detached signature + verification</span>
 tesseract-crypt sign -k alice.key -i release.tar.gz -o release.tar.gz.sig
 tesseract-crypt verify -k alice.pub -i release.tar.gz -s release.tar.gz.sig
+
+<span class="c"># send the same file to a whole team (repeat -r; format v2)</span>
+tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
+                        -k alice.key -i secret.txt -o team.enc
 
 <span class="c"># inspect header &amp; fingerprint</span>
 tesseract-crypt inspect -i secret.enc

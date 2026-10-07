@@ -37,6 +37,12 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
   - Tes known-answer (KAT) `tests/test_vectors.c` + fixture terkunci
     `tests/fixtures/`: header format v1 (264 byte), armor, dan signature
     Ed25519ph deterministik atas kunci fixture.
+  - **Multi-penerima (format v2):** satu pesan untuk banyak kunci publik —
+    data key acak 32 byte dibungkus per penerima (blok 80 byte: recipient pk
+    + AEAD 48 byte, AAD = header 264 byte + pk penerima); header v2 memuat
+    jumlah penerima (u32 @ offset 40, byte 44–71 cadangan wajib nol). Kunci
+    privat lain yang bukan penerima ditolak eksplisit (`TESS_ERR_RECIPIENT`,
+    exit 3). CLI: ulangi `-r`. Tes `tests/test_multi.c` + vektor header v2.
   - GitHub Pages workflow untuk `docs/`.
 - **Docs**: landing page, referensi CLI, spesifikasi format; man page
     `tesseract-crypt(1)` (alias `tscrypt(1)`).

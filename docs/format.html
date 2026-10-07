@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Format Specification — Tesseract Crypt</title>
-<meta name="description" content="Tesseract v1 binary message format: 264-byte TSCR header, X25519+BLAKE2b key schedule, XChaCha20-Poly1305 chunks, and TSK1/TSK2/TSKp key files.">
+<meta name="description" content="Tesseract v1/v2 binary message formats: 264-byte TSCR header, X25519+BLAKE2b key schedule, XChaCha20-Poly1305 chunks, multi-recipient key blocks, and TSK1/TSK2/TSKp key files.">
 <link rel="stylesheet" href="style.css">
 <link rel="alternate" hreflang="en" href="format.html">
 <link rel="alternate" hreflang="id" href="id/format.html">
@@ -29,9 +29,10 @@
   <section class="hero">
     <h1>Format <em>specification</em></h1>
     <p class="lead">
-      Tesseract's v1 binary format: a fixed 264-byte header with the magic
+      Tesseract's binary format: a fixed 264-byte header with the magic
       <code>TSCR</code>, followed by a stream of XChaCha20-Poly1305 encrypted
-      chunks. All bytes are <em>little-endian</em> unless stated otherwise.
+      chunks. Format <em>v2</em> adds multi-recipient messages; all bytes are
+      <em>little-endian</em> unless stated otherwise.
     </p>
   </section>
 
@@ -44,12 +45,12 @@
     <table>
       <tr><th class="num">Offset</th><th class="num">Size</th><th>Field</th><th>Description</th></tr>
       <tr><td class="num">0</td><td class="num">4</td><td class="mono">magic</td><td><code>"TSCR"</code></td></tr>
-      <tr><td class="num">4</td><td class="num">1</td><td class="mono">version</td><td>1</td></tr>
+      <tr><td class="num">4</td><td class="num">1</td><td class="mono">version</td><td>1 (single recipient) or 2 (multi-recipient)</td></tr>
       <tr><td class="num">5</td><td class="num">1</td><td class="mono">suite</td><td>1 = X25519 + BLAKE2b + XChaCha20-Poly1305 + Ed25519</td></tr>
       <tr><td class="num">6</td><td class="num">1</td><td class="mono">mode</td><td>1 = public-key, 2 = passphrase</td></tr>
       <tr><td class="num">7</td><td class="num">1</td><td class="mono">flags</td><td>bit0 = signed</td></tr>
       <tr><td class="num">8</td><td class="num">32</td><td class="mono">eph pk</td><td>X25519 ephemeral (mode 1)</td></tr>
-      <tr><td class="num">40</td><td class="num">32</td><td class="mono">recipient pk</td><td>X25519 recipient (mode 1, binding)</td></tr>
+      <tr><td class="num">40</td><td class="num">32</td><td class="mono">recipient pk</td><td>X25519 recipient (mode 1, binding; v2: recipient count, see below)</td></tr>
       <tr><td class="num">72</td><td class="num">32</td><td class="mono">sender x pk</td><td>X25519 sender (mode 1; zero if anonymous)</td></tr>
       <tr><td class="num">104</td><td class="num">32</td><td class="mono">sender ed pk</td><td>Ed25519 sender (if signed, otherwise zero)</td></tr>
       <tr><td class="num">136</td><td class="num">64</td><td class="mono">signature</td><td>Ed25519 over plaintext (if signed, otherwise zero)</td></tr>
@@ -60,6 +61,13 @@
       <tr><td class="num">252</td><td class="num">4</td><td class="mono">chunk size</td><td>Plaintext bytes per chunk (u32)</td></tr>
       <tr><td class="num">256</td><td class="num">8</td><td class="mono">pt len</td><td>Plaintext length (u64; <code>UINT64_MAX</code> = streaming/unknown)</td></tr>
     </table>
+    <div class="note">
+      <strong>Version 2 (multi-recipient).</strong> The field at offset 40
+      then holds a <em>recipient count</em> (u32, little-endian) instead of a
+      public key; bytes 44&ndash;71 are reserved and must be zero. The
+      per-recipient key blocks follow the header — see the
+      <a href="#v2">multi-recipient key schedule</a>.
+    </div>
   </section>
 
   <section>
@@ -70,6 +78,30 @@
 dh_stat = X25519(sender_sk, recipient_pk)       <span class="c"># identity binding (zero when anonymous)</span>
 master  = BLAKE2b-256(key = dh_eph,
                       in  = dh_stat || salt || "tesseract-kdf-v1")</pre>
+
+    <h3 id="v2">Mode 1, format v2 — multi-recipient</h3>
+    <p>
+      A random 32-byte <em>data key</em> protects the payload; it is wrapped
+      once per recipient using that recipient's own DH secret — the same
+      <code>wrap_i</code> derivation as v1, but computed per recipient. One
+      block of 80 bytes is emitted per recipient, in the order passed to the
+      API:
+    </p>
+<pre class="code">block_i = recipient pk (32) || XChaCha20-Poly1305(key = wrap_i,
+                                   msg = data_key, nonce = base_nonce,
+                                   aad = header(264) || recipient pk) (48)
+
+wrap_i  = BLAKE2b-256(key = X25519(eph_sk, recipient_i_pk),
+                      in  = X25519(sender_sk, recipient_i_pk) || salt || "tesseract-kdf-v1")</pre>
+    <p>
+      The decryptor scans the blocks for its own public key, derives the same
+      <code>wrap_i</code> and unwraps the data key — then proceeds exactly as
+      in v1 (payload chunks under the data key). A message that is not
+      addressed to your key is rejected with a dedicated error. The 264-byte
+      header remains the AAD of every chunk, and each block is wrapped with
+      AAD <code>header || recipient pk</code>, so blocks cannot be transplanted
+      from another message or silently reordered.
+    </p>
 
     <h3>Mode 2 — passphrase</h3>
 <pre class="code">master = Argon2id(passphrase, salt, ops, mem)   <span class="c"># ops/mem from the header</span></pre>
@@ -90,7 +122,8 @@ ct_i     = XChaCha20-Poly1305(subkey_i, nonce_i, pt_i, aad_i)</pre>
 
   <section>
     <h2 id="framing">File framing</h2>
-<pre class="code">header(264) || (u32le len(ct_i) || ct_i)*</pre>
+<pre class="code">v1: header(264) || (u32le len(ct_i) || ct_i)*
+v2: header(264) || block_1(80) … block_N(80) || (u32le len(ct_i) || ct_i)*</pre>
     <p>
       Each chunk is wrapped with its length (4 bytes little-endian) followed
       by the ciphertext. The last chunk is marked by the <code>final</code>
@@ -158,7 +191,8 @@ ct_i     = XChaCha20-Poly1305(subkey_i, nonce_i, pt_i, aad_i)</pre>
       <tr><td>Chunk size</td><td class="mono">4096 … 16&nbsp;MiB</td></tr>
       <tr><td>Argon2id ops (untrusted)</td><td class="mono">≤ 16</td></tr>
       <tr><td>Argon2id mem (untrusted)</td><td class="mono">64 KiB … 4 GiB</td></tr>
-      <tr><td>Header version</td><td class="mono">== 1</td></tr>
+      <tr><td>Header version</td><td class="mono">1 or 2</td></tr>
+      <tr><td>Recipients (v2)</td><td class="mono">1 … 1024</td></tr>
       <tr><td>Suite</td><td class="mono">== 1</td></tr>
     </table>
     <p>All sensitive material is <code>sodium_memzero</code>'d after use;

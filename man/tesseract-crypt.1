@@ -44,8 +44,10 @@ Dengan \fB--passphrase\fR, kunci pribadi disimpan terkunci
 Mengekspor kunci publik dari berkas kunci pribadi.
 .TP
 .B encrypt
-\fB\-r\fR \fIRECIPIENT.pub\fR [\fB\-k\fR \fISENDER.key\fR] [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--armor\fR] [\fB--chunk-size\fR \fIN\fR] [\fB--no-sign\fR]
-Mengenkripsi berkas untuk penerima. Tanpa \fB\-k\fR pesan bersifat anonim;
+\fB\-r\fR \fIRECIPIENT.pub\fR ...
+Mengenkripsi berkas untuk penerima. Ulangi
+\fB\-r\fR untuk mengirim ke banyak penerima sekaligus (format v2).
+Tanpa \fB\-k\fR pesan bersifat anonim;
 dengan \fB\-k\fR pesan ditandatangani (Ed25519).
 .TP
 .B encrypt

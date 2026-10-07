@@ -76,6 +76,12 @@
       AEAD and signature succeed. Unauthenticated data never reaches the
       destination.</p>
     </article>
+    <article>
+      <h3>Multi-recipient (v2)</h3>
+      <p>One message for a whole team: a random data key wrapped once per
+      recipient under their own X25519 DH secret. Repeat <code>-r</code> on
+      the CLI; non-recipients are rejected explicitly.</p>
+    </article>
   </section>
 
   <section id="quickstart">

@@ -155,6 +155,34 @@ inline bytes seal(std::string_view data, const key *recipient = nullptr,
 }
 
 /**
+ * Encrypt `data` for several recipients at once (wire format v2).
+ * Every entry must be a public key object; nullptr entries are rejected.
+ */
+inline bytes seal(std::string_view data,
+                  const std::vector<const key *> &recipients,
+                  const key *sender = nullptr, bool sign = false,
+                  uint32_t chunk_size = 0) {
+    tess_seal_options o;
+    tess_seal_options_init(&o);
+    std::vector<const tess_key *> raw;
+    raw.reserve(recipients.size());
+    for (const key *k : recipients) raw.push_back(k ? k->get() : nullptr);
+    o.recipients = raw.data();
+    o.recipient_count = raw.size();
+    o.sender_secret = sender ? sender->get() : nullptr;
+    o.sign = sign ? 1 : 0;
+    o.chunk_size = chunk_size;
+
+    uint8_t *out = nullptr;
+    size_t out_len = 0;
+    check(tess_seal(reinterpret_cast<const uint8_t *>(data.data()),
+                    data.size(), &o, &out, &out_len));
+    bytes result(out, out + out_len);
+    tess_free(out);
+    return result;
+}
+
+/**
  * Decrypt a message produced by seal().
  * @param passphrase     used in passphrase mode
  * @param required_signer pin to this sender identity (optional)

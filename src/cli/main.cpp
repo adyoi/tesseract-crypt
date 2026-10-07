@@ -53,6 +53,7 @@ int exit_for(tess_status st) {
     case TESS_ERR_SIGNATURE:
     case TESS_ERR_SIGNER:
     case TESS_ERR_PASSPHRASE:
+    case TESS_ERR_RECIPIENT:
         return EXIT_AUTH;
     default:
         return EXIT_FAIL;
@@ -210,6 +211,15 @@ struct parser {
         return def;
     }
 
+    /* every value following repeated occurrences of flag (order kept) */
+    std::vector<std::string> get_all(const std::string &flag) const {
+        std::vector<std::string> out;
+        for (size_t k = 1; k + 1 < v.size(); k++) {
+            if (v[k] == flag) out.push_back(v[k + 1]);
+        }
+        return out;
+    }
+
     bool get_u32(const std::string &flag, uint32_t &out) const {
         std::string s = get(flag);
         if (s.empty()) return false;
@@ -248,8 +258,9 @@ int cmd_help() {
         "  tesseract-crypt pubkey   -k KEYFILE [-o OUT]\n"
         "      Export the public key from a private key file.\n"
         "\n"
-        "  tesseract-crypt encrypt  -r RECIPIENT.pub [-k SENDER.key] [-i IN] [-o OUT]\n"
+        "  tesseract-crypt encrypt  -r RECIPIENT.pub [-r MORE.pub ...] [-k SENDER.key] [-i IN] [-o OUT]\n"
         "                   [--armor] [--chunk-size N] [--no-sign]\n"
+        "      Repeat -r to encrypt for several recipients at once.\n"
         "  tesseract-crypt encrypt  --passphrase [-i IN] [-o OUT] [--armor]\n"
         "  tesseract-crypt encrypt  --text \"secret\" -r RECIPIENT.pub\n"
         "      Encrypt a file or a string.  Default input/output: stdin/stdout.\n"
@@ -408,48 +419,60 @@ int cmd_encrypt(const parser &p) {
     tess_seal_options so;
     tess_seal_options_init(&so);
 
-    std::string rec_path = p.get("-r");
+    std::vector<std::string> rec_paths = p.get_all("-r");
+    std::vector<tess_key *> rec_pubs;
+    std::vector<const tess_key *> rec_view;
     std::string sender_path = p.get("-k");
     bool passphrase_mode = p.has("--passphrase");
     bool do_sign = !p.has("--no-sign");
 
-    tess_key *rec_pub = nullptr;
     tess_key *sender = nullptr;
     tess_key *sender_pub = nullptr;
     tess_status st = TESS_OK;
     int rc = EXIT_OK;
     uint32_t chunk = 0;
 
-    if (!rec_path.empty() && passphrase_mode) {
+    if (!rec_paths.empty() && passphrase_mode) {
         std::cerr << "tesseract-crypt encrypt: use either -r or --passphrase, not both\n";
         return EXIT_USAGE;
     }
-    if (rec_path.empty() && !passphrase_mode) {
+    if (rec_paths.empty() && !passphrase_mode) {
         std::cerr << "tesseract-crypt encrypt: need -r RECIPIENT.pub or --passphrase\n";
         return EXIT_USAGE;
     }
 
-    if (!rec_path.empty()) {
-        st = tess_key_load(rec_path.c_str(), nullptr, &rec_pub);
-        if (st != TESS_OK) {
-            fail(st, "loading " + rec_path);
-            return exit_for(st);
+    if (!rec_paths.empty()) {
+        /* load every recipient; repeat -r to encrypt for several at once */
+        for (const std::string &rp : rec_paths) {
+            tess_key *k = nullptr;
+            st = tess_key_load(rp.c_str(), nullptr, &k);
+            if (st != TESS_OK) {
+                fail(st, "loading " + rp);
+                for (tess_key *kk : rec_pubs) tess_key_free(kk);
+                return exit_for(st);
+            }
+            rec_pubs.push_back(k);
         }
-        so.recipient_public = rec_pub;
+        rec_view.reserve(rec_pubs.size());
+        for (tess_key *k : rec_pubs) rec_view.push_back(k);
+        if (rec_pubs.size() == 1) {
+            so.recipient_public = rec_pubs[0]; /* single recipient: v1 */
+        } else {
+            so.recipients = rec_view.data();   /* multi-recipient: v2 */
+            so.recipient_count = rec_view.size();
+        }
 
         if (!sender_path.empty()) {
             std::string pass;
             st = load_key(sender_path, pass, true, &sender);
             if (st != TESS_OK) {
                 fail(st, "loading " + sender_path);
-                tess_key_free(rec_pub);
-                return exit_for(st);
+                goto cleanup;
             }
             if (tess_key_is_locked(sender)) {
                 fail(TESS_ERR_PASSPHRASE, "sender key is locked");
-                tess_key_free(sender);
-                tess_key_free(rec_pub);
-                return EXIT_AUTH;
+                rc = EXIT_AUTH;
+                goto cleanup;
             }
             so.sender_secret = sender;
             st = tess_key_get_public(sender, &sender_pub);
@@ -560,7 +583,9 @@ int cmd_encrypt(const parser &p) {
             /* streaming file -> file */
             tess_seal_file_options fo;
             tess_seal_file_options_init(&fo);
-            fo.recipient_public = rec_pub;
+            fo.recipient_public = so.recipient_public;
+            fo.recipients = so.recipients;
+            fo.recipient_count = so.recipient_count;
             fo.sender_secret = sender;
             fo.sign = so.sign;
             fo.chunk_size = so.chunk_size;
@@ -607,7 +632,7 @@ int cmd_encrypt(const parser &p) {
     }
 
 cleanup:
-    tess_key_free(rec_pub);
+    for (tess_key *k : rec_pubs) tess_key_free(k);
     tess_key_free(sender);
     tess_key_free(sender_pub);
     return rc;
@@ -891,8 +916,11 @@ int cmd_inspect(const parser &p) {
               << "mode           : "
               << (info.mode == TESS_MODE_PUBLICKEY ? "public-key"
                                                    : "passphrase")
-              << "\n"
-              << "signed         : " << (info.signed_flag ? "yes" : "no")
+              << "\n";
+    if (info.mode == TESS_MODE_PUBLICKEY) {
+        std::cout << "recipients     : " << info.recipient_count << "\n";
+    }
+    std::cout << "signed         : " << (info.signed_flag ? "yes" : "no")
               << "\n"
               << "chunk size     : " << info.chunk_size << " bytes\n"
               << "plaintext len  : ";

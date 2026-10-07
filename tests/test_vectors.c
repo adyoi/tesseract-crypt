@@ -1,7 +1,8 @@
-/* test_vectors.c — known-answer tests (KAT) for format v1.
+/* test_vectors.c — known-answer tests (KAT) for the wire format.
  *
  * Three vector families, all frozen constants:
  *   1. header    — crafted 264-byte headers vs. the table in docs/format.html
+ *                  (format v1 single-recipient + format v2 multi-recipient)
  *   2. armor     — exact PEM-like encoding of a fixed 9-byte input
  *   3. signature — a fixture key + message whose Ed25519ph signature is
  *                  deterministic (tests/fixtures/kat.{key,pub,msg,sig},
@@ -92,7 +93,7 @@ int main(void) {
     h[0] = 'X';
     CHECK_ST(tess_inspect(h, 264, &info), TESS_ERR_FORMAT);
     mk_header(h);
-    h[4] = 2;
+    h[4] = 3; /* unknown version */
     CHECK_ST(tess_inspect(h, 264, &info), TESS_ERR_UNSUPPORTED);
     mk_header(h);
     h[5] = 2;
@@ -165,6 +166,41 @@ int main(void) {
     wr_u32(h + 216, 3);
     wr_u64(h + 220, 5368709120ull); /* 5 GiB > cap */
     CHECK_ST(tess_inspect(h, 264, &info), TESS_ERR_FORMAT);
+
+    /* ---- format v2 (multi-recipient) header vectors ---- */
+    mk_header(h);
+    h[4] = 2;
+    wr_u32(h + 40, 3u);
+    memset(h + 44, 0, 28); /* reserved bytes must be zero */
+    CHECK_ST(tess_inspect(h, sizeof h, &info), TESS_OK);
+    CHECK(info.version == 2);
+    CHECK(info.recipient_count == 3u);
+
+    mk_header(h);
+    h[4] = 2;
+    wr_u32(h + 40, 0u);
+    memset(h + 44, 0, 28);
+    CHECK_ST(tess_inspect(h, sizeof h, &info), TESS_ERR_FORMAT);
+
+    mk_header(h);
+    h[4] = 2;
+    wr_u32(h + 40, TESS_MAX_RECIPIENTS + 1u);
+    memset(h + 44, 0, 28);
+    CHECK_ST(tess_inspect(h, sizeof h, &info), TESS_ERR_FORMAT);
+
+    mk_header(h);
+    h[4] = 2;
+    wr_u32(h + 40, 3u);
+    memset(h + 44, 0, 28);
+    h[50] = 1; /* reserved byte must be zero */
+    CHECK_ST(tess_inspect(h, sizeof h, &info), TESS_ERR_FORMAT);
+
+    mk_header(h);
+    h[4] = 2;
+    wr_u32(h + 40, 3u);
+    memset(h + 44, 0, 28);
+    h[6] = TESS_MODE_PASSPHRASE; /* v2 requires public-key mode */
+    CHECK_ST(tess_inspect(h, sizeof h, &info), TESS_ERR_FORMAT);
 
     /* ---------------- 2. armor vectors ---------------- */
     {

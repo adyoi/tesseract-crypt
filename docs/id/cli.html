@@ -70,7 +70,7 @@
     Output ke TTY otomatis di-<em>armor</em> menjadi teks aman salin-tempel.</p>
     <table>
       <tr><th>Opsi</th><th>Deskripsi</th></tr>
-      <tr><td><code>-r RECIPIENT.pub</code></td><td>Kunci publik penerima (mode public-key).</td></tr>
+      <tr><td><code>-r RECIPIENT.pub</code></td><td>Kunci publik penerima (mode public-key). Ulangi untuk mengirim ke <em>banyak</em> penerima sekaligus (format v2).</td></tr>
       <tr><td><code>-k SENDER.key</code></td><td>Kunci privat pengirim untuk tanda tangan (default: anonim).</td></tr>
       <tr><td><code>-i IN</code></td><td>Berkas input (default: <code>stdin</code>).</td></tr>
       <tr><td><code>-o OUT</code></td><td>Berkas output (default: <code>stdout</code>).</td></tr>
@@ -120,11 +120,16 @@
 
     <h3 id="inspect"><span class="mono">inspect</span></h3>
     <p>Membaca header pesan tanpa mendekripsi: versi format, suite, mode,
-    ukuran chunk, perkiraan panjang plaintext, dan fingerprint penanda tangan.</p>
+    jumlah penerima, ukuran chunk, perkiraan panjang plaintext, dan fingerprint penanda tangan.</p>
     <table>
       <tr><th>Opsi</th><th>Deskripsi</th></tr>
       <tr><td><code>-i FILE</code></td><td>Pesan (default: <code>stdin</code>). Ber-armor otomatis dideteksi.</td></tr>
     </table>
+    <pre class="code">$ tesseract-crypt inspect -i tim.enc
+format version : 2
+mode           : public-key
+recipients     : 3
+signed         : yes</pre>
 
     <h3 id="info"><span class="mono">info</span></h3>
     <p>Menampilkan tipe kunci (privat/terkunci/publik) dan fingerprint-nya.</p>
@@ -146,7 +151,7 @@
       <tr><td><code>0</code></td><td>Sukses.</td></tr>
       <tr><td><code>1</code></td><td>Kesalahan umum (I/O, format, kunci).</td></tr>
       <tr><td><code>2</code></td><td>Penggunaan salah (argumen tidak valid / tidak lengkap).</td></tr>
-      <tr><td><code>3</code></td><td>Otentikasi gagal — AEAD, tanda tangan, atau kata sandi salah.</td></tr>
+      <tr><td><code>3</code></td><td>Otentikasi gagal — AEAD, tanda tangan, kata sandi salah, atau pesan tidak ditujukan untuk kunci ini.</td></tr>
     </table>
   </section>
 
@@ -171,6 +176,10 @@ tesseract-crypt encrypt --passphrase -i catatan.txt -o catatan.enc
 <span class="c"># tanda tangan detached + verifikasi</span>
 tesseract-crypt sign -k alice.key -i rilis.tar.gz -o rilis.tar.gz.sig
 tesseract-crypt verify -k alice.pub -i rilis.tar.gz -s rilis.tar.gz.sig
+
+<span class="c"># kirim berkas yang sama ke satu tim (ulangi -r; format v2)</span>
+tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
+                        -k alice.key -i rahasia.txt -o tim.enc
 
 <span class="c"># inspeksi header & fingerprint</span>
 tesseract-crypt inspect -i rahasia.enc

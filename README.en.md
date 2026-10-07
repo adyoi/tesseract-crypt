@@ -22,6 +22,7 @@ passphrase mode.
 | **Passphrase mode** | Argon2id (memory-hard) as symmetric fallback |
 | **Streaming chunked** | 64 KiB per chunk, per-chunk subkey (`crypto_kdf`), constant memory, reorder/truncation detection |
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` for stdout & text |
+| **Multi-recipient (v2)** | One message for many recipients: a random data key wrapped per recipient (format v2) |
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
 
 ## Build

@@ -139,7 +139,7 @@ endif()
 if(TESS_BUILD_TESTS)
     enable_testing()
 
-    set(TESS_TESTS roundtrip tamper armor keys file sign vectors)
+    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi)
     foreach(t ${TESS_TESTS})
         add_executable(test_${t} tests/test_${t}.c)
         target_link_libraries(test_${t} PRIVATE tesseract::crypt)

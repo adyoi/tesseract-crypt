@@ -15,6 +15,7 @@
 #define TESS_MAGIC "TSCR"
 #define TESS_MAGIC_LEN 4
 #define TESS_VERSION 1
+#define TESS_VERSION_MULTI 2
 #define TESS_SUITE_1 1
 
 #define TESS_KEY_MAGIC_PRIVATE "TSK1"
@@ -44,6 +45,7 @@ enum {
     TESS_OFF_FLAGS = 7,
     TESS_OFF_EPH_PK = 8,
     TESS_OFF_RECIPIENT_PK = 40,
+    TESS_OFF_RECIPIENT_COUNT = 40, /* format v2 (u32); bytes 44..71 reserved */
     TESS_OFF_SENDER_X_PK = 72,
     TESS_OFF_SENDER_ED_PK = 104,
     TESS_OFF_SIGNATURE = 136,
@@ -62,6 +64,7 @@ typedef struct tess_header {
     uint8_t flags;
     uint8_t eph_pk[crypto_box_PUBLICKEYBYTES];
     uint8_t recipient_pk[crypto_box_PUBLICKEYBYTES];
+    uint32_t recip_count;      /* v2: recipient blocks after the header     */
     uint8_t sender_x_pk[crypto_box_PUBLICKEYBYTES];
     uint8_t sender_ed_pk[crypto_sign_PUBLICKEYBYTES];
     uint8_t signature[crypto_sign_BYTES];

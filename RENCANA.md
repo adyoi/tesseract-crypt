@@ -23,10 +23,12 @@ dibangun di atas model kunci hibrida modern:
 | 6 | **Key file terenkripsi** | Private key dilindungi Argon2id (opsi `--passphrase` saat keygen) |
 | 7 | **Fingerprint & trust** | Fingerprint BLAKE2b-128 dari public key; opsi `--require-signer` untuk pinning identity |
 | 8 | **Kebersihan memori** | `sodium_memzero` + `sodium_mlock` pada material kunci |
+| 9 | **Multi-penerima (v2)** | Satu pesan untuk banyak kunci publik: data key acak dibungkus per penerima (blok 80 B); non-penerima ditolak eksplisit |
 
 ### Pembeda ("belum pernah ada")
 - **Header terikat ke setiap chunk** (header seluruhnya jadi AAD + index chunk + flag final) → mencegah splice, reorder, dan truncation secara kriptografis, bukan sekadar checksum.
 - **Identity-bound hybrid encryption**: kombinasi ephemeral DH *dan* static DH antara sender↔recipient, sehingga dekripsi hanya berhasil bila memang pasangan kunci yang benar, sambil tetap mempertahankan forward secrecy.
+- **Multi-recipient tanpa replikasi header**: format v2 memakai satu header 264 B + satu data key acak, dengan wrap key per penerima di blok 80 B — ukuran pesan ≈ v1 + 80 B/penerima, dan blok terikat ke header (AAD) sehingga tak bisa dipindah antar pesan.
 - **Verifikasi signature saat streaming dengan output-file atomik** (tulis `.part` → verify → `rename`), sehingga plaintext yang belum tervalidasi tidak pernah muncul di path final.
 
 ---
@@ -84,12 +86,12 @@ tesseract-crypt/
 | Offset | Size | Field |
 |--------|------|-------|
 | 0 | 4 | magic `"TSCR"` |
-| 4 | 1 | version = 1 |
+| 4 | 1 | version = 1 (single) / 2 (multi-recipient) |
 | 5 | 1 | suite = 1 (X25519 + BLAKE2b + XChaCha20-Poly1305 + Ed25519) |
 | 6 | 1 | mode (1 = public-key, 2 = passphrase) |
 | 7 | 1 | flags (bit0 = signed) |
 | 8 | 32 | ephemeral X25519 pk (mode 1) |
-| 40 | 32 | recipient X25519 pk (mode 1, binding) |
+| 40 | 32 | recipient X25519 pk (mode 1, binding) — v2: recipient count (u32) + reserved 28 B wajib nol |
 | 72 | 32 | sender X25519 pk (mode 1, opsional/anonymous) |
 | 104 | 32 | sender Ed25519 pk (jika signed, else nol) |
 | 136 | 64 | signature Ed25519 atas plaintext (jika signed, else nol) |
@@ -109,6 +111,16 @@ dh_stat  = X25519(sender_sk, recipient_pk)       # identity binding (0 jika anon
 master   = BLAKE2b-256(key = dh_eph,
                        in  = dh_stat || salt || "tesseract-kdf-v1")
 ```
+**Mode 1, format v2 (multi-recipient):**
+```
+data_key = randombytes(32)                       # melindungi muatan
+wrap_i   = BLAKE2b-256(key = X25519(eph_sk, recipient_i_pk),
+                       in  = X25519(sender_sk, recipient_i_pk) || salt || "tesseract-kdf-v1")
+block_i  = recipient_i_pk(32) || XChaCha20-Poly1305(wrap_i, data_key,
+                                                    nonce = base_nonce,
+                                                    aad = header(264) || recipient_i_pk)(48)
+```
+Lalu chunk muatan memakai `data_key` menggantikan `master`; AAD chunk tetap header(264).
 **Mode 2 (passphrase):**
 ```
 master = Argon2id(passphrase, salt, ops, mem)    # ops/mem dari header
@@ -146,8 +158,8 @@ Pesan kosong = satu chunk final berisi 0 byte plaintext.
 ```
 tesseract-crypt keygen    -o alice [--passphrase] [--kdf-ops N] [--kdf-mem MB]
 tesseract-crypt pubkey    -k alice.key [-o alice.pub]
-tesseract-crypt encrypt   -r bob.pub [-k alice.key] [-i in] [-o out] [--armor]
-                          [--chunk-size N] [--no-sign]
+tesseract-crypt encrypt   -r bob.pub [-r carol.pub ...] [-k alice.key] [-i in] [-o out] [--armor]
+                          [--chunk-size N] [--no-sign]    # -r berulang → format v2
 tesseract-crypt encrypt   --passphrase [-i in] [-o out]        # mode simetris
 tesseract-crypt encrypt   --text "rahasia" -r bob.pub          # string → stdout (armor)
 tesseract-crypt decrypt   -k bob.key [-i in] [-o out]
@@ -188,7 +200,7 @@ UX: output ke TTY → otomatis armor; stdin/stdout (`-`) didukung; exit code ≠
 6. **Release:** tag `v0.1.0` → tarball sumber (workflow rilis menyusul di milestone M3).
 7. README menampilkan badge: CI, License, Pages.
 
-> Catatan: `gh` pada mesin ini belum login (`gh auth login`) — push remote dilakukan setelah login.
+> Catatan: repositori live di `github.com/adyoi/tesseract-crypt`; remote `origin` sudah diset dan `gh` terautentikasi — push langsung ke `main`.
 
 ---
 
@@ -200,9 +212,9 @@ UX: output ke TTY → otomatis armor; stdin/stdout (`-`) didukung; exit code ≠
 | **M1 — Core crypto** | keygen, seal/open buffer & file, sign/verify, armor, tests | ✅ |
 | **M2 — CLI lengkap** | Semua subcommand, man page, UX TTY/armor otomatis | ✅ |
 | **M3 — Docs & Pages** | `docs/` landing + CLI reference + format spec, deploy Pages | ✅ |
-| **M4 — Packaging** | PKGBUILD, RPM spec, `.deb`, biner rilis CI | ⬜ |
-| **M5 — Hardening** | Fuzz target (libFuzzer), fuzzing CI, coverage, audit eksternal | ⬜ |
-| **M6 — Ekstra** | `--rekey`, multi-recipient, KMS/plugin backend, key rotation tooling | ⬜ |
+| **M4 — Packaging** | PKGBUILD, RPM spec, `.deb`, biner rilis CI, APT repo di Pages | 🚧 |
+| **M5 — Hardening** | Fuzz target (libFuzzer), fuzzing CI, coverage, audit eksternal | 🚧 |
+| **M6 — Ekstra** | `--rekey`, KMS/plugin backend, key rotation tooling | 🚧 |
 
 ---
 
