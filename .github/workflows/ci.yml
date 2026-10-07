@@ -68,3 +68,56 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
         run: ctest --test-dir build --output-on-failure
+
+  windows:
+    name: MSVC · Release (vcpkg)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libsodium (vcpkg)
+        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DTESS_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Smoke test CLI (nama kanonik + alias)
+        run: |
+          ./build/Release/tesseract-crypt.exe version
+          ./build/Release/tscrypt.exe version
+
+  macos:
+    name: AppleClang · Release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libsodium
+        run: brew install libsodium
+
+      - name: Configure
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DTESS_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_PREFIX_PATH=$(brew --prefix)
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Smoke test CLI (nama kanonik + alias)
+        run: |
+          ./build/tesseract-crypt version
+          ./build/tscrypt version

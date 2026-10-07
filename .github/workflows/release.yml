@@ -1,0 +1,107 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "linux  · gcc",   os: ubuntu-latest,  cc: gcc,   cxx: g++,     artifact: linux-x86_64 }
+          - { name: "macos  · apple", os: macos-latest,   cc: clang, cxx: clang++, artifact: macos }
+          - { name: "windows· msvc",  os: windows-latest, cc: cl,    cxx: cl,      artifact: windows-x64 }
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libsodium (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libsodium-dev
+
+      - name: Install libsodium (macOS)
+        if: runner.os == 'macOS'
+        run: brew install libsodium
+
+      - name: Install libsodium (Windows · vcpkg)
+        if: runner.os == 'Windows'
+        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
+
+      - name: Configure
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -S . -B build -DTESS_WARNINGS_AS_ERRORS=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTESS_WARNINGS_AS_ERRORS=ON \
+              -DCMAKE_PREFIX_PATH="$(brew --prefix)"
+          else
+            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTESS_WARNINGS_AS_ERRORS=ON
+          fi
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Package (CPack)
+        run: cmake --build build --config Release --target package
+
+      - name: Collect package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $pkgs = Get-ChildItem build -File |
+            Where-Object { $_.Name -match '^tesseract-crypt[-_].*\.(tar\.gz|zip|deb)$' }
+          if (-not $pkgs) { Write-Error "no CPack artifact produced"; exit 1 }
+          $pkgs | ForEach-Object { Copy-Item $_.FullName dist/ }
+          Get-ChildItem dist | ForEach-Object { Write-Host "package: $($_.Name)" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesseract-crypt-${{ matrix.artifact }}
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: |
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Tesseract Crypt $GITHUB_REF_NAME" \
+            --generate-notes

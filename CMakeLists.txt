@@ -196,7 +196,20 @@ install(FILES
 # ------------------------------------------------------------------ #
 set(CPACK_PACKAGE_NAME "tesseract-crypt")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
-set(CPACK_PACKAGE_CONTACT "tesseract-crypt maintainers")
+set(CPACK_PACKAGE_CONTACT "Tesseract Crypt maintainers")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
+    "String & file encryption with public/private keys (X25519 hybrid + Ed25519 sign)")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
-set(CPACK_GENERATOR "TGZ")
+
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+elseif(APPLE)
+    set(CPACK_GENERATOR "TGZ")
+else()
+    set(CPACK_GENERATOR "TGZ;DEB")
+    set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
+    set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+endif()
+
 include(CPack)
