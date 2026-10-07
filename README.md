@@ -1,5 +1,10 @@
 # Tesseract Crypt
 
+[![CI](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml)
+[![Pages](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml)
+[![Release](https://img.shields.io/github/v/release/adyoi/tesseract-crypt)](https://github.com/adyoi/tesseract-crypt/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-6ee7ff.svg)](LICENSE)
+
 **Enkripsi string & file dengan public/private key — hibrida modern, streaming, bertanda tangan.**
 
 `libtesseract_crypt` (C11) + `tesseract-crypt` (CLI, C++17, alias pendek: `tscrypt`)
@@ -20,6 +25,10 @@ passphrase.
 ## Build
 
 ```bash
+# Dapatkan sumber
+git clone https://github.com/adyoi/tesseract-crypt.git
+cd tesseract-crypt
+
 # Linux (libsodium dari distro)
 sudo apt install build-essential cmake libsodium-dev   # Debian/Ubuntu
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -85,10 +94,10 @@ Wrapper C++17 header-only tersedia di `<tesseract/tesseract.hpp>` (`tess::key`,
 
 ## Dokumentasi
 
-- [Landing page](https://<owner>.github.io/tesseract-crypt/) — gambaran & quick start
-- [Referensi CLI](https://<owner>.github.io/tesseract-crypt/cli.html)
-- [Spesifikasi format](https://<owner>.github.io/tesseract-crypt/format.html)
-- [Tentang & perbandingan](https://<owner>.github.io/tesseract-crypt/tentang.html)
+- [Landing page](https://adyoi.github.io/tesseract-crypt/) — gambaran & quick start
+- [Referensi CLI](https://adyoi.github.io/tesseract-crypt/cli.html)
+- [Spesifikasi format](https://adyoi.github.io/tesseract-crypt/format.html)
+- [Tentang & perbandingan](https://adyoi.github.io/tesseract-crypt/tentang.html)
 
 ## Keamanan
 
