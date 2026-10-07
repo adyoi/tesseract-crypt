@@ -111,6 +111,10 @@ int main(void) {
         free(tam);
     }
 
+    /* the message buffer from the first seal is no longer needed */
+    free(ct);
+    ct = NULL;
+
     /* ---- option validation ---- */
     tess_seal_options_init(&so);
     so.recipients = recips;

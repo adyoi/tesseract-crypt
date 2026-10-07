@@ -18,6 +18,13 @@ DEB="${1:?usage: build-apt-repo.sh <package.deb> <apt-root> [key-id]}"
 APT="${2:?usage: build-apt-repo.sh <package.deb> <apt-root> [key-id]}"
 KEYID="${3:-}"
 
+# resolve to an absolute path: makes every relative redirect/`cd` inside the
+# apt-ftparchive subshell unambiguous
+case "$APT" in
+    /*) : ;;
+    *) APT="$(pwd -P)/$APT" ;;
+esac
+
 ARCH="amd64"
 SUITE="stable"
 COMP="main"
