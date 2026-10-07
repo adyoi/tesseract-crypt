@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(tesseract-crypt
-    VERSION 0.1.0
+    VERSION 0.2.0
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
     LANGUAGES C CXX)
 
@@ -108,6 +108,7 @@ set_target_properties(tesseract_crypt PROPERTIES
     VERSION ${PROJECT_VERSION}
     SOVERSION ${PROJECT_VERSION_MAJOR}
     OUTPUT_NAME tesseract_crypt
+    EXPORT_NAME crypt
     POSITION_INDEPENDENT_CODE ON)
 
 # ------------------------------------------------------------------ #
@@ -171,7 +172,7 @@ endif()
 # fuzzing (libFuzzer — Clang only, enabled with -DTESS_FUZZ=ON)       #
 # ------------------------------------------------------------------ #
 if(TESS_FUZZ)
-    foreach(f inspect dearmor key_parse)
+    foreach(f inspect dearmor key_parse open)
         add_executable(fuzz_${f} fuzz/fuzz_${f}.c)
         target_link_libraries(fuzz_${f} PRIVATE tesseract::crypt)
         target_link_options(fuzz_${f} PRIVATE -fsanitize=fuzzer)
@@ -192,6 +193,12 @@ install(TARGETS tesseract_crypt
 
 install(DIRECTORY include/tesseract
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# FindSodium.cmake is what resolves libsodium on distro-style installs
+# (plain library, no config package); ship it with the config so that
+# find_package(tesseract CONFIG) -> find_dependency(Sodium) works.
+install(FILES cmake/FindSodium.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tesseract)
 
 if(TESS_BUILD_CLI)
     install(TARGETS ${TESS_CLI_TARGET}
@@ -242,6 +249,8 @@ install(FILES
 # ------------------------------------------------------------------ #
 set(CPACK_PACKAGE_NAME "tesseract-crypt")
 set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_HOMEPAGE_URL
+    "https://adyoi.github.io/tesseract-crypt/")
 set(CPACK_PACKAGE_CONTACT "Tesseract Crypt maintainers")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "String & file encryption with public/private keys (X25519 hybrid + Ed25519 sign)")
@@ -254,8 +263,20 @@ elseif(APPLE)
 else()
     set(CPACK_GENERATOR "TGZ;DEB")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
+    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Tesseract Crypt maintainers")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
+    # Derive the dependency list from the linked libraries instead of
+    # hand-maintaining it (requires dpkg-shlibdeps at package time).
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
     set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+    # RPM is opt-in: only selected when rpmbuild is actually available.
+    find_program(TESS_RPMBUILD_EXECUTABLE rpmbuild)
+    if(TESS_RPMBUILD_EXECUTABLE)
+        list(APPEND CPACK_GENERATOR "RPM")
+        set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+        set(CPACK_RPM_PACKAGE_GROUP "Applications/System")
+        set(CPACK_RPM_PACKAGE_REQUIRES "libsodium >= 1.0.18")
+    endif()
 endif()
 
 include(CPack)

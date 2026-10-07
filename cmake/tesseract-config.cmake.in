@@ -2,7 +2,13 @@
 
 include(CMakeFindDependencyMacro)
 
-# libsodium is a public dependency: consumers need it too.
+# Our FindSodium.cmake ships next to this config (see CMakeLists.txt) so that
+# distro-style installs — libsodium as a plain library, no config package —
+# still resolve Sodium::sodium.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+# Prefer an installed sodium config package (vcpkg, packagers that provide
+# one); fall back to our FindSodium.cmake.
 find_dependency(Sodium QUIET)
 if(NOT Sodium_FOUND)
     find_dependency(unofficial-sodium CONFIG)

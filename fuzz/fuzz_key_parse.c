@@ -15,22 +15,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sodium.h>
+
 #include <tesseract/tesseract.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
-int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
     char *text;
     tess_key *key = NULL;
 
-    if (size > (1u << 20)) return 0; /* key blobs are <= 1 KiB armored */
+    if (sodium_init() < 0)
+        return 0;
+    if (size > (1u << 20))
+        return 0; /* key blobs are <= 1 KiB armored */
 
     text = (char *)malloc(size + 1);
-    if (text == NULL) return 0;
+    if (text == NULL)
+        return 0;
     memcpy(text, data, size);
     text[size] = '\0';
 
-    if (tess_key_parse(text, NULL, &key) == TESS_OK) {
+    if (tess_key_parse(text, NULL, &key) == TESS_OK)
+    {
         tess_key_free(key);
     }
     free(text);
