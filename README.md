@@ -88,6 +88,7 @@ Wrapper C++17 header-only tersedia di `<tesseract/tesseract.hpp>` (`tess::key`,
 - [Landing page](https://<owner>.github.io/tesseract-crypt/) — gambaran & quick start
 - [Referensi CLI](https://<owner>.github.io/tesseract-crypt/cli.html)
 - [Spesifikasi format](https://<owner>.github.io/tesseract-crypt/format.html)
+- [Tentang & perbandingan](https://<owner>.github.io/tesseract-crypt/tentang.html)
 
 ## Keamanan
 

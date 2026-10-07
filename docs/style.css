@@ -131,6 +131,11 @@ code {
   color: #cfe6ff;
 }
 
+.table-scroll {
+  overflow-x: auto;
+  border-radius: 10px;
+}
+
 pre.code {
   position: relative;
   background: linear-gradient(180deg, var(--code-bg), #060a12);
