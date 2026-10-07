@@ -1,0 +1,13 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# libsodium is a public dependency: consumers need it too.
+find_dependency(Sodium QUIET)
+if(NOT Sodium_FOUND)
+    find_dependency(unofficial-sodium CONFIG)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/tesseractTargets.cmake")
+
+check_required_components(tesseract)

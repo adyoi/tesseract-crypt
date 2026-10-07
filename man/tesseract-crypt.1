@@ -1,0 +1,170 @@
+.\" tesseract-crypt(1) — man page for the tesseract-crypt command line tool
+.\" SPDX-License-Identifier: MIT
+.TH TESSERACT-CRYPT 1 "Oktober 2026" "tesseract-crypt 0.1.0" "User Commands"
+.SH NAMA
+tesseract-crypt \- enkripsi dan dekripsi string serta file dengan kunci publik/pribadi
+.SH SINOPSIS
+.B tesseract-crypt
+\fIperintah\fR [\fIopsi\fR]
+.br
+.B tscrypt
+\fIperintah\fR [\fIopsi\fR]
+.SH DESKRIPSI
+.B tesseract-crypt
+adalah antarmuka baris perintah untuk
+.BR libtesseract_crypt ,
+perpustakaan C11 untuk enkripsi hibrida kunci publik dengan
+forward secrecy, tanda tangan Ed25519 (sign-then-encrypt),
+XChaCha20-Poly1305 per-chunk, dan mode fallback kata sandi Argon2id.
+.PP
+Biner dipasang dengan dua nama: nama kanonik
+.B tesseract-crypt
+dan alias pendek
+.BR tscrypt .
+Kedua nama identik dan tersedia pada semua platform
+(Linux, Windows, macOS, BSD). Di Windows akhiran
+.B .exe
+ditambahkan otomatis.
+.PP
+Input/output default adalah stdin/stdout. Output ke terminal (TTY)
+otomatis dibungkus dalam armor teks
+.B "-----BEGIN TESSERACT MESSAGE-----"
+agar aman disalin-tempel. Input ber-armor terdeteksi otomatis saat
+dekripsi dan inspeksi.
+.SH PERINTAH
+.TP
+.B keygen
+\fR\-o\fR \fINAME\fR [\fB--passphrase\fR] [\fB--kdf-ops\fR \fIN\fR] [\fB--kdf-mem\fR \fIMB\fR]
+Membuat pasangan kunci \fINAME.key\fR (pribadi) dan \fINAME.pub\fR (publik).
+Dengan \fB--passphrase\fR, kunci pribadi disimpan terkunci
+(XChaCha20-Poly1305 dengan kunci turunan Argon2id).
+.TP
+.B pubkey
+\fB\-k\fR \fIKEYFILE\fR [\fB\-o\fR \fIOUT\fR]
+Mengekspor kunci publik dari berkas kunci pribadi.
+.TP
+.B encrypt
+\fB\-r\fR \fIRECIPIENT.pub\fR [\fB\-k\fR \fISENDER.key\fR] [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--armor\fR] [\fB--chunk-size\fR \fIN\fR] [\fB--no-sign\fR]
+Mengenkripsi berkas untuk penerima. Tanpa \fB\-k\fR pesan bersifat anonim;
+dengan \fB\-k\fR pesan ditandatangani (Ed25519).
+.TP
+.B encrypt
+\fB--passphrase\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--armor\fR]
+Mode simetris: kunci diturunkan dari kata sandi dengan Argon2id.
+.TP
+.B encrypt
+\fB--text\fR \(dqrahasia\(dq \fB\-r\fR \fIRECIPIENT.pub\fR
+Mengenkripsi string langsung; output ber-armor ke stdout.
+.TP
+.B decrypt
+\fB\-k\fR \fIRECIPIENT.key\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR] [\fB--require-signer\fR \fISIGNER.pub\fR]
+Mendekripsi pesan. Dengan \fB--require-signer\fR, tanda tangan diverifikasi
+terhadap kunci publik tersebut sebelum plaintext ditulis (pinning identitas).
+.TP
+.B decrypt
+\fB--passphrase\fR [\fB\-i\fR \fIIN\fR] [\fB\-o\fR \fIOUT\fR]
+Mode simetris: masukkan kata sandi yang sama seperti saat enkripsi.
+.TP
+.B sign
+\fB\-k\fR \fIKEY\fR [\fB\-i\fR \fIFILE\fR] [\fB\-o\fR \fIFILE.sig\fR]
+Menandatangani berkas (tanda tangan detached, Ed25519ph).
+.TP
+.B verify
+\fB\-k\fR \fIPUBKEY\fR \fB\-i\fR \fIFILE\fR \fB\-s\fR \fIFILE.sig\fR
+Memverifikasi tanda tangan detached.
+.TP
+.B inspect
+[\fB\-i\fR \fIFILE\fR]
+Membaca header pesan (versi, mode, ukuran chunk, panjang plaintext,
+fingerprint penanda tangan) tanpa mendekripsi.
+.TP
+.B info
+\fB\-k\fR \fIKEYFILE\fR
+Menampilkan tipe berkas kunci dan fingerprint-nya.
+.TP
+.B version
+Mencetak versi. Setara dengan \fB--version\fR / \fB\-V\fR.
+.TP
+.B help
+Mencetak bantuan. Setara dengan \fB--help\fR / \fB\-h\fR.
+.SH OPSI UMUM
+.TP
+.B \-i \fIFILE\fR
+Berkas input; \fI\-\fR atau tanpa nilai berarti stdin.
+.TP
+.B \-o \fIFILE\fR
+Berkas output; \fI\-\fR atau tanpa nilai berarti stdout.
+.TP
+.B \-\-armor
+Memaksa output teks ber-armor (default saat menuju TTY).
+.TP
+.B \-\-chunk-size \fIN\fR
+Ukuran chunk plaintext per blok; rentang 4096\ ...\ 16777216 byte
+(default 65536).
+.TP
+.B \-\-kdf-ops \fIN\fR
+dan
+.B \-\-kdf-mem \fIMB\fR
+Menyesuaikan biaya Argon2id untuk kunci berkas (keygen) atau mode
+passphrase (encrypt/decrypt).
+.SH KODE KELUAR
+.TP
+.B 0
+Sukses.
+.TP
+.B 1
+Kesalahan umum (I/O, format berkas, kode error library).
+.TP
+.B 2
+Penggunaan salah: argumen tak dikenal atau tidak lengkap (sebagian kesalahan
+validasi argumen juga memetakan ke sini).
+.TP
+.B 3
+Otentikasi gagal: AEAD, tanda tangan, signer wajib, atau kata sandi salah.
+Tidak ada berkas output yang ditulis.
+.SH CONTOH
+.nf
+tesseract-crypt keygen -o alice --passphrase
+tesseract-crypt encrypt -r bob.pub -k alice.key -i rahasia.txt -o rahasia.enc
+tesseract-crypt decrypt -k bob.key -i rahasia.enc -o rahasia.out --require-signer alice.pub
+tesseract-crypt encrypt --text "Halo dunia" -r bob.pub
+.f
+.PP
+Pada semua contoh di atas, awalan
+.B tesseract-crypt
+dapat diganti dengan
+.B tscrypt.
+.SH BERKAS
+.TP
+.B NAME.key
+Kunci pribadi. TSK1 (164 byte, apa adanya) atau TSK2 (232 byte, terkunci
+Argon2id). Dapat di-armor ke label
+.B "TESSERACT PRIVATE KEY"
+atau
+.BR "TESSERACT PRIVATE KEY (LOCKED)" .
+.TP
+.B NAME.pub
+Kunci publik TSKp (68 byte); armor label
+.BR "TESSERACT PUBLIC KEY" .
+.SH KEAMANAN
+Kunci pribadi di-\fBsodium_mlock\fR saat dimuat dan di-\fBsodium_memzero\fR
+setelah digunakan. Header 264 byte menjadi AAD setiap chunk, sehingga
+truncation, reorder, dan splice terdeteksi secara kriptografis. Parameter
+Argon2id dari header tak tepercaya dibatasi (maksimum 16 ops dan 4 GiB)
+untuk mencegah penyalahgunaan memori. RNG bawaan libsodium
+(\fBrandombytes_buf\fR) selalu dipakai \-\- kode ini tidak pernah memakai
+RNG sendiri.
+.sp
+Lihat RENCANA.md dan docs/format.html untuk spesifikasi lengkap,
+dan SECURITY.md untuk cara melaporkan kerentanan.
+.SH LIHAT JUGA
+.BR sodium_init (3),
+.BR crypto_aead_xchacha20poly1305_ietf_encrypt (3),
+.BR crypto_pwhash (3),
+.BR crypto_sign (3)
+.br
+Dokumentasi daring: halaman GitHub Pages proyek ini (docs/).
+.SH PENULIS
+Kontributor proyek Tesseract Crypt.
+.SH LISENSI
+MIT. Perpustakaan dasar: libsodium (ISC).

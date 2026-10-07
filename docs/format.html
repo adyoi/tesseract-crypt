@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spesifikasi Format — Tesseract Crypt</title>
+<meta name="description" content="Spesifikasi format biner pesan Tesseract v1: header 264 byte TSCR, key schedule X25519+BLAKE2b, chunk XChaCha20-Poly1305, dan berkas kunci TSK1/TSK2/TSKp.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Beranda</a>
+      <a href="cli.html">Referensi CLI</a>
+      <a href="format.html" class="active">Spesifikasi Format</a>
+      <a href="https://github.com" aria-label="GitHub">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Spesifikasi <em>format</em></h1>
+    <p class="lead">
+      Format biner <strong>v1</strong> pesan Tesseract: header tetap 264 byte
+      ber-magic <code>TSCR</code>, lalu deretan chunk terenkripsi
+      XChaCha20-Poly1305. Seluruh byte ke-<em>little-endian</em> kecuali
+      dinyatakan lain.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="header">Header pesan (264 byte)</h2>
+    <p>
+      Header <em>seluruhnya</em> menjadi AAD (additional authenticated data)
+      setiap chunk. Mengubah satu byte pun membuat dekripsi gagal.
+    </p>
+    <table>
+      <tr><th class="num">Offset</th><th class="num">Size</th><th>Field</th><th>Keterangan</th></tr>
+      <tr><td class="num">0</td><td class="num">4</td><td class="mono">magic</td><td><code>"TSCR"</code></td></tr>
+      <tr><td class="num">4</td><td class="num">1</td><td class="mono">version</td><td>1</td></tr>
+      <tr><td class="num">5</td><td class="num">1</td><td class="mono">suite</td><td>1 = X25519 + BLAKE2b + XChaCha20-Poly1305 + Ed25519</td></tr>
+      <tr><td class="num">6</td><td class="num">1</td><td class="mono">mode</td><td>1 = public-key, 2 = passphrase</td></tr>
+      <tr><td class="num">7</td><td class="num">1</td><td class="mono">flags</td><td>bit0 = signed</td></tr>
+      <tr><td class="num">8</td><td class="num">32</td><td class="mono">eph pk</td><td>X25519 ephemeral (mode 1)</td></tr>
+      <tr><td class="num">40</td><td class="num">32</td><td class="mono">recipient pk</td><td>X25519 penerima (mode 1, binding)</td></tr>
+      <tr><td class="num">72</td><td class="num">32</td><td class="mono">sender x pk</td><td>X25519 pengirim (mode 1; nol jika anonim)</td></tr>
+      <tr><td class="num">104</td><td class="num">32</td><td class="mono">sender ed pk</td><td>Ed25519 pengirim (jika signed, selain itu nol)</td></tr>
+      <tr><td class="num">136</td><td class="num">64</td><td class="mono">signature</td><td>Ed25519 atask plaintext (jika signed, selain itu nol)</td></tr>
+      <tr><td class="num">200</td><td class="num">16</td><td class="mono">salt</td><td>KDF salt</td></tr>
+      <tr><td class="num">216</td><td class="num">4</td><td class="mono">argon2 ops</td><td>Opslimit (mode 2)</td></tr>
+      <tr><td class="num">220</td><td class="num">8</td><td class="mono">argon2 mem</td><td>Memlimit byte (mode 2)</td></tr>
+      <tr><td class="num">228</td><td class="num">24</td><td class="mono">base nonce</td><td>Nonce dasar per pesan</td></tr>
+      <tr><td class="num">252</td><td class="num">4</td><td class="mono">chunk size</td><td>Jumlah byte plaintext per chunk (u32)</td></tr>
+      <tr><td class="num">256</td><td class="num">8</td><td class="mono">pt len</td><td>Panjang plaintext (u64; <code>UINT64_MAX</code> = streaming/unknown)</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="keyschedule">Key schedule</h2>
+
+    <h3>Mode 1 — public-key (hybrid)</h3>
+<pre class="code">dh_eph  = X25519(eph_sk, recipient_pk)          <span class="c"># forward secrecy</span>
+dh_stat = X25519(sender_sk, recipient_pk)       <span class="c"># identity binding (nol bila anonim)</span>
+master  = BLAKE2b-256(key = dh_eph,
+                      in  = dh_stat || salt || "tesseract-kdf-v1")</pre>
+
+    <h3>Mode 2 — passphrase</h3>
+<pre class="code">master = Argon2id(passphrase, salt, ops, mem)   <span class="c"># ops/mem dari header</span></pre>
+
+    <h3>Per chunk ke-i</h3>
+<pre class="code">subkey_i = crypto_kdf(32, i+1, "TSCHNK01", master)
+nonce_i  = base_nonce XOR (i di 8 byte terakhir, big-endian)
+aad_i    = header(264) || u64be(i) || u8(final)
+ct_i     = XChaCha20-Poly1305(subkey_i, nonce_i, pt_i, aad_i)</pre>
+
+    <div class="note">
+      <strong>Mengapa header jadi AAD tiap chunk?</strong> Karena setiap chunk
+      di-ikat ke header + nomor urut + penanda akhir, percobaan <em>reorder,
+      splice, maupun truncation</em> terdeteksi secara kriptografis — bukan
+      sekadar checksum.
+    </div>
+  </section>
+
+  <section>
+    <h2 id="framing">Cangkang berkas</h2>
+<pre class="code">header(264) || (u32le len(ct_i) || ct_i)*</pre>
+    <p>
+      Setiap chunk dibungkus panjangnya (4 byte little-endian) lalu ciphertext.
+      Chunk terakhir ditandai flag <code>final</code> di AAD. Pesan kosong
+      direpresentasikan sebagai satu chunk final berisi 0 byte plaintext.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="armor">Armor (PEM-like)</h2>
+    <p>Biner dapat dienkode ke teks base64 dengan pembatas label:</p>
+<pre class="code">-----BEGIN TESSERACT MESSAGE-----
+<em>b64</em>
+-----END TESSERACT MESSAGE-----</pre>
+    <table>
+      <tr><th>Data</th><th>Label armor</th></tr>
+      <tr><td>Pesan terenkripsi</td><td class="mono">TESSERACT MESSAGE</td></tr>
+      <tr><td>Kunci privat</td><td class="mono">TESSERACT PRIVATE KEY</td></tr>
+      <tr><td>Kunci privat terkunci</td><td class="mono">TESSERACT PRIVATE KEY (LOCKED)</td></tr>
+      <tr><td>Kunci publik</td><td class="mono">TESSERACT PUBLIC KEY</td></tr>
+    </table>
+    <p>Dekripsi &amp; <code>inspect</code> mendeteksi input ber-armor secara otomatis.</p>
+  </section>
+
+  <section>
+    <h2 id="keyfiles">Berkas kunci (TSK1 / TSK2 / TSKp)</h2>
+
+    <table>
+      <tr><th>Format</th><th class="num">Ukuran</th><th>Isi</th></tr>
+      <tr>
+        <td><code>TSK1</code> — privat (plain)</td><td class="num">164</td>
+        <td>magic(4) + x_pk(32) + e_pk(32) + x_sk(32) + e_sk(64)</td>
+      </tr>
+      <tr>
+        <td><code>TSK2</code> — privat (locked)</td><td class="num">232</td>
+        <td>magic(4) + x_pk(32) + e_pk(32) + salt(16) + ops(4) + mem(8) + nonce(24) + secret_aead(112)</td>
+      </tr>
+      <tr>
+        <td><code>TSKp</code> — publik</td><td class="num">68</td>
+        <td>magic(4) + x_pk(32) + e_pk(32)</td>
+      </tr>
+    </table>
+
+    <p>
+      Pada <code>TSK2</code>, bagian privat — <code>x_sk(32) + e_sk(64)</code> —
+      dienkripsi XChaCha20-Poly1305 dengan kunci <code>Argon2id(passphrase,
+      salt, ops, mem)</code> menggunakan AAD konteks
+      <code>"tesseract-key-v1"</code>; 16 byte terakhir adalah tag AEAD.
+      Bagian publik sengaja disimpan terang agar fingerprint &amp; ekspor
+      publik berfungsi tanpa kata sandi.
+    </p>
+
+    <div class="warn">
+      <strong>Anti-DoS.</strong> Saat membaca header/blob tak tepercaya,
+      parameter Argon2id dibatasi keras: maksimum <code>16</code> ops dan
+      <code>4 GiB</code> memori, minimum memori <code>64 KiB</code>. Ini
+      mencegah memori terkuras oleh berkas musuhan.
+    </div>
+  </section>
+
+  <section>
+    <h2 id="limits">Batasan yang diterapkan</h2>
+    <table>
+      <tr><th>Parameter</th><th>Batas</th></tr>
+      <tr><td>Ukuran chunk</td><td class="mono">4096 … 16&nbsp;MiB</td></tr>
+      <tr><td>Argon2id ops (untuk untrusted)</td><td class="mono">≤ 16</td></tr>
+      <tr><td>Argon2id mem (untuk untrusted)</td><td class="mono">64 KiB … 4 GiB</td></tr>
+      <tr><td>Versi header</td><td class="mono">== 1</td></tr>
+      <tr><td>Suite</td><td class="mono">== 1</td></tr>
+    </table>
+    <p>Seluruh material sensitif di-<code>sodium_memzero</code> setelah
+    digunakan; kunci privat di-<code>sodium_mlock</code>. Tool tidak pernah
+    memakai RNG sendiri — hanya <code>randombytes_buf</code> libsodium.</p>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <p>MIT License · Format v1 stabil · Dokumen ini disajikan oleh GitHub Pages.</p>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# Build
+build/
+build-*/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+
+# Artefak
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.gcda
+*.gcno
+*.gcov
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*~
+.cache/
+
+# Key & data uji (jangan pernah di-commit)
+*.key
+*.pub
+*.enc
+*.sig
+!tests/fixtures/*.sig
+
+# OS
+.DS_Store
+Thumbs.db
