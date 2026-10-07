@@ -28,7 +28,7 @@ int main(void) {
 
     /* malformed base64 must be rejected */
     {
-        char *bad = strdup(armored);
+        char *bad = test_strdup(armored);
         uint8_t *junk = NULL;
         size_t junk_len = 0;
         char *b = strstr(bad, "-----BEGIN");

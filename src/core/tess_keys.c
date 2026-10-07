@@ -108,10 +108,14 @@ static void pack_secret(const tess_key *k, uint8_t blob[96]) {
     memcpy(blob + 32, k->e_sk, 64);
 }
 
-static void lock_derive(const char *pass, const uint8_t salt[16], uint32_t ops,
-                        uint64_t mem, uint8_t key[crypto_kdf_KEYBYTES]) {
-    crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, strlen(pass), salt, ops, mem,
-                  crypto_pwhash_ALG_ARGON2ID13);
+static tess_status lock_derive(const char *pass, const uint8_t salt[16],
+                               uint32_t ops, uint64_t mem,
+                               uint8_t key[crypto_kdf_KEYBYTES]) {
+    if (crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, strlen(pass), salt,
+                      ops, mem, crypto_pwhash_ALG_ARGON2ID13) != 0) {
+        return TESS_ERR_CRYPTO;
+    }
+    return TESS_OK;
 }
 
 static tess_status key_lock_into(tess_key *k, const char *passphrase,
@@ -129,7 +133,11 @@ static tess_status key_lock_into(tess_key *k, const char *passphrase,
 
     randombytes_buf(k->lock_salt, sizeof k->lock_salt);
     randombytes_buf(k->lock_nonce, sizeof k->lock_nonce);
-    lock_derive(passphrase, k->lock_salt, ops, mem, subkey);
+    st = lock_derive(passphrase, k->lock_salt, ops, mem, subkey);
+    if (st != TESS_OK) {
+        sodium_memzero(subkey, sizeof subkey);
+        return st;
+    }
     k->lock_ops = ops;
     k->lock_mem = mem;
 
@@ -159,6 +167,7 @@ tess_status tess_key_unlock(tess_key *key, const char *passphrase) {
     uint8_t subkey[crypto_kdf_KEYBYTES];
     uint8_t blob[96];
     unsigned long long blen = 0;
+    tess_status st;
 
     if (key == NULL || !key->is_secret) return TESS_ERR_INVALID_ARG;
     if (!key->is_locked) return TESS_OK;
@@ -171,8 +180,12 @@ tess_status tess_key_unlock(tess_key *key, const char *passphrase) {
         return TESS_ERR_FORMAT;
     }
 
-    lock_derive(passphrase, key->lock_salt, key->lock_ops, key->lock_mem,
-                subkey);
+    st = lock_derive(passphrase, key->lock_salt, key->lock_ops, key->lock_mem,
+                     subkey);
+    if (st != TESS_OK) {
+        sodium_memzero(subkey, sizeof subkey);
+        return st;
+    }
     if (crypto_aead_xchacha20poly1305_ietf_decrypt(
             blob, &blen, NULL, key->lock_blob,
             (unsigned long long)sizeof key->lock_blob,
