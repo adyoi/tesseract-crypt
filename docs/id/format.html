@@ -6,11 +6,13 @@
 <title>Spesifikasi Format — Tesseract Crypt</title>
 <meta name="description" content="Spesifikasi format biner pesan Tesseract v1/v2: header 264 byte TSCR, key schedule X25519+BLAKE2b, chunk XChaCha20-Poly1305, blok kunci multi-penerima, dan berkas kunci TSK1/TSK2/TSKp.">
 <link rel="stylesheet" href="../style.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="alternate" hreflang="id" href="format.html">
 <link rel="alternate" hreflang="en" href="../format.html">
 <link rel="alternate" hreflang="x-default" href="../format.html">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site">
   <div class="wrap">
     <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
@@ -25,7 +27,7 @@
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <section class="hero">
     <h1>Spesifikasi <em>format</em></h1>
     <p class="lead">
@@ -209,8 +211,8 @@ v2: header(264) || block_1(80) … block_N(80) || (u32le len(ct_i) || ct_i)*</pr
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
-        <a href="../audit-readiness.md">Kesiapan audit</a>
-        <a href="../coverage.md">Cakupan kode</a>
+        <a href="../audit-readiness.html">Kesiapan audit</a>
+        <a href="../coverage.html">Cakupan kode</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

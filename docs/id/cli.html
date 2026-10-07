@@ -6,11 +6,13 @@
 <title>Referensi CLI — Tesseract Crypt</title>
 <meta name="description" content="Referensi lengkap perintah tesseract-crypt: keygen, pubkey, encrypt, decrypt, rekey, sign, verify, inspect, info, version, help.">
 <link rel="stylesheet" href="../style.css">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
 <link rel="alternate" hreflang="id" href="cli.html">
 <link rel="alternate" hreflang="en" href="../cli.html">
 <link rel="alternate" hreflang="x-default" href="../cli.html">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site">
   <div class="wrap">
     <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
@@ -25,7 +27,7 @@
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <section class="hero">
     <h1>Referensi <em>command line</em></h1>
     <p class="lead">
@@ -52,6 +54,7 @@
     <table>
       <tr><th>Opsi</th><th>Deskripsi</th></tr>
       <tr><td><code>-o NAME</code></td><td>Nama berkas dasar (wajib). Akhiran <code>.key</code> diabaikan jika diketik.</td></tr>
+      <tr><td><code>--force</code></td><td>Timpa <code>NAME.key</code> / <code>NAME.pub</code> jika sudah ada.</td></tr>
       <tr><td><code>--passphrase</code></td><td>Lindungi kunci privat dengan kata sandi (Argon2id).</td></tr>
       <tr><td><code>--kdf-ops N</code></td><td>Iterasi Argon2id (opslimit).</td></tr>
       <tr><td><code>--kdf-mem MB</code></td><td>Memori Argon2id dalam MiB.</td></tr>
@@ -78,6 +81,8 @@
       <tr><td><code>--chunk-size N</code></td><td>Ukuran chunk (4096 … 16777216; default 65536).</td></tr>
       <tr><td><code>--no-sign</code></td><td>Nonaktifkan tanda tangan pengirim.</td></tr>
       <tr><td><code>--passphrase</code></td><td>Mode simetris: turunkan kunci dari kata sandi (Argon2id).</td></tr>
+      <tr><td><code>--kdf-ops N</code></td><td>Iterasi Argon2id untuk kunci passphrase (opslimit).</td></tr>
+      <tr><td><code>--kdf-mem MB</code></td><td>Memori Argon2id untuk kunci passphrase dalam MiB.</td></tr>
       <tr><td><code>--text "rahasia"</code></td><td>Enkripsi string (tanpa berkas); output ber-armor ke stdout.</td></tr>
     </table>
 
@@ -92,6 +97,12 @@
       <tr><td><code>--require-signer SIGNER.pub</code></td><td>Wajibkan tanda tangan dari kunci publik ini (pinning).</td></tr>
       <tr><td><code>--passphrase</code></td><td>Mode simetris: gunakan kata sandi.</td></tr>
     </table>
+
+    <div class="note">
+      <strong>Plaintext ke stdout.</strong> Dengan <code>-i FILE</code> tanpa
+      <code>-o</code>, plaintext ditulis ke <code>stdout</code> — hanya setelah
+      AEAD (dan tanda tangan bila diminta) terverifikasi.
+    </div>
 
     <div class="warn">
       <strong>Penting.</strong> Saat <code>--require-signer</code> gagal,
@@ -124,6 +135,7 @@
       <tr><th>Opsi</th><th>Deskripsi</th></tr>
       <tr><td><code>-k OLD_KEY</code></td><td>Kunci privat penerima lama (atau pakai <code>--old-passphrase</code> untuk mode passphrase).</td></tr>
       <tr><td><code>--old-passphrase PASS</code></td><td>Kata sandi lama jika pesan bersifat simetris.</td></tr>
+      <tr><td><code>--old-passphrase-file FILE</code></td><td>Baca kata sandi lama dari berkas (baris pertama; newline akhir dihapus). Saling bertentangan dengan dua opsi di atas.</td></tr>
       <tr><td><code>-i IN</code></td><td>Input pesan (default: <code>stdin</code>).</td></tr>
       <tr><td><code>-o OUT</code></td><td>Output pesan (default: <code>stdout</code>).</td></tr>
       <tr><td><code>-r RECIPIENT.pub</code></td><td>Penerima baru (ulangi untuk multi-penerima).</td></tr>
@@ -131,6 +143,7 @@
       <tr><td><code>--require-signer SIGNER.pub</code></td><td>Wajibkan signer asli.</td></tr>
       <tr><td><code>--chunk-size N</code></td><td>Ukuran chunk (4096 … 16777216).</td></tr>
       <tr><td><code>--no-sign</code></td><td>Nonaktifkan tanda tangan pada pesan baru.</td></tr>
+      <tr><td><code>--armor</code></td><td>Paksa output teks berlabel <code>BEGIN</code>/<code>END</code> (alih-alih berkas biner).</td></tr>
     </table>
 
     <h3 id="inspect"><span class="mono">inspect</span></h3>
@@ -214,8 +227,8 @@ tesseract-crypt info -k alice.key</pre>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
-        <a href="../audit-readiness.md">Kesiapan audit</a>
-        <a href="../coverage.md">Cakupan kode</a>
+        <a href="../audit-readiness.html">Kesiapan audit</a>
+        <a href="../coverage.html">Cakupan kode</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

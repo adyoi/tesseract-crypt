@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit Readiness — Tesseract Crypt</title>
+<meta name="description" content="A checklist for an independent security audit of Tesseract Crypt: threat model, codebase inventory, security features, testing and validation, and review scope recommendations.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://adyoi.github.io/tesseract-crypt/audit-readiness.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tesseract Crypt">
+<meta property="og:title" content="Audit Readiness — Tesseract Crypt">
+<meta property="og:description" content="A checklist for an independent security audit of Tesseract Crypt.">
+<meta property="og:url" content="https://adyoi.github.io/tesseract-crypt/audit-readiness.html">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="about.html">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="hero">
+    <h1>Audit <em>readiness</em></h1>
+    <p class="lead">
+      This document provides guidance for an independent security audit of
+      Tesseract Crypt. It is intended for auditors, maintainers, and contributors.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="overview">1. Project overview</h2>
+    <table>
+      <tr><th>Aspect</th><th>Detail</th></tr>
+      <tr><td>Language</td><td>C11 (library core), C++17 (CLI)</td></tr>
+      <tr><td>Cryptographic backend</td><td>libsodium 1.0.18+</td></tr>
+      <tr><td>Algorithms</td><td>X25519 (ECDH), Ed25519 (signatures), XChaCha20-Poly1305 (AEAD), Argon2id (password-based key derivation), BLAKE2b (key derivation)</td></tr>
+      <tr><td>Formats</td><td>Binary message format (v1 single-recipient, v2 multi-recipient), PEM-like armored text</td></tr>
+      <tr><td>Target platforms</td><td>Linux, macOS, Windows, BSD/Unix-like systems</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="threat-model">2. Threat model summary</h2>
+    <p>
+      Tesseract Crypt implements sign-then-encrypt with hybrid public-key
+      encryption. Key assumptions:
+    </p>
+    <ul>
+      <li>libsodium provides correct low-level primitives.</li>
+      <li>Secure random source via <code>randombytes_buf</code>.</li>
+      <li>Passive/active network adversary sees ciphertext only; no side-channel mitigations beyond libsodium defaults are claimed.</li>
+      <li>Private keys are protected — unlocked only when needed; <code>sodium_mlock</code> is used for sensitive material where possible.</li>
+    </ul>
+    <p>
+      Assets to protect: plaintext confidentiality and integrity, sender
+      authenticity (when signed), forward secrecy (per-message ephemeral X25519),
+      identity binding (static DH).
+    </p>
+  </section>
+
+  <section>
+    <h2 id="inventory">3. Codebase inventory</h2>
+    <table>
+      <tr><th>Directory</th><th>Contents</th></tr>
+      <tr><td><code>include/tesseract/</code></td><td>Public API (C, C++ header-only wrapper)</td></tr>
+      <tr><td><code>src/core/</code></td><td>Core cryptographic implementation — header validation, key schedule, seal/open, signatures, keys, utilities</td></tr>
+      <tr><td><code>src/cli/</code></td><td>Command-line interface</td></tr>
+      <tr><td><code>tests/</code></td><td>Unit/integration tests, known-answer tests, tamper detection</td></tr>
+      <tr><td><code>fuzz/</code></td><td>libFuzzer targets (inspect, dearmor, key_parse)</td></tr>
+      <tr><td><code>cmake/</code>, <code>CMakeLists.txt</code></td><td>Build system</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="security-features">4. Security features</h2>
+    <ul>
+      <li>Versioned message header (magic <code>TSCR</code>, versions 1/2) with strict validation.</li>
+      <li>Chunked streaming with per-chunk subkeys and AAD binding header + chunk index + final flag (prevents splice/reorder/truncation).</li>
+      <li>Sign-then-encrypt: signature in authenticated header; decrypt writes to <code>.part</code> and renames only after verification (atomic verify-then-rename).</li>
+      <li>Multi-recipient v2: data key wrapped per recipient (80-byte block), explicit recipient rejection (<code>TESS_ERR_RECIPIENT</code>).</li>
+      <li>Passphrase mode uses Argon2id with enforced bounds when reading untrusted headers.</li>
+      <li>Memory safety: <code>sodium_memzero</code> for sensitive data, <code>sodium_mlock</code> on private key material.</li>
+      <li>No custom RNG; strict bounds checking (chunk sizes, Argon2 params, recipient counts).</li>
+      <li>Armor/base64 with length and bounds handling.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 id="testing">5. Testing &amp; validation</h2>
+    <table>
+      <tr><th>Measure</th><th>Status</th></tr>
+      <tr><td>CTest suite</td><td>roundtrip, tamper, armor, keys, file, sign, vectors, multi</td></tr>
+      <tr><td>Known-answer tests (KAT)</td><td>fixtures in <code>tests/fixtures/</code></td></tr>
+      <tr><td>ASan/UBSan</td><td>sanitizer job in CI</td></tr>
+      <tr><td>libFuzzer</td><td>fuzzing targets with 60&nbsp;s smoke runs in CI</td></tr>
+      <tr><td>Build matrix</td><td>gcc/clang (Linux), AppleClang (macOS), MSVC (Windows), Debug/Release</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2 id="limitations">6. Known limitations / out of scope</h2>
+    <ul>
+      <li>External third-party security audit not yet performed (this is a readiness document).</li>
+      <li>Side-channel resistance depends on libsodium platform implementations.</li>
+      <li>No formal verification; correctness relies on tests and review.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 id="scope">7. Audit scope recommendations</h2>
+    <p>Recommended areas for deep review:</p>
+    <ol>
+      <li>Header parsing/validation (<code>tess_header.c</code>) — boundary conditions, integer handling.</li>
+      <li>Key schedule (mode 1 v1/v2, passphrase mode) — domain separation, DH correctness.</li>
+      <li>Chunk AEAD construction — nonce derivation, AAD structure, index overflow.</li>
+      <li>Multi-recipient unwrap — block layout, AAD = header ‖ recipient_pk, recipient lookup.</li>
+      <li>Atomic file operations (verify-then-rename) — TOCTOU, platform differences (Windows).</li>
+      <li>Memory clearing/locking — coverage of all sensitive paths.</li>
+      <li>Fuzzing coverage and harness safety.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2 id="references">8. References</h2>
+    <ul>
+      <li>Specification: <a href="format.html">format.html</a></li>
+      <li>API: <code>include/tesseract/tesseract.h</code></li>
+      <li>Threats/handling: <a href="https://github.com/adyoi/tesseract-crypt/blob/main/SECURITY.md">SECURITY.md</a></li>
+      <li>Design decisions: <a href="https://github.com/adyoi/tesseract-crypt/blob/main/DEVELOPMENT.md">DEVELOPMENT.md</a></li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/INSTALL.md">Install</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+        <a href="audit-readiness.html">Audit readiness</a>
+        <a href="coverage.html">Coverage</a>
+      </nav>
+      <span class="foot-meta mono">v0.1.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Coverage — Tesseract Crypt</title>
+<meta name="description" content="How to measure code coverage for Tesseract Crypt with GCC/Clang and gcov/lcov, including the TESS_COVERAGE CMake option and CI integration.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://adyoi.github.io/tesseract-crypt/coverage.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tesseract Crypt">
+<meta property="og:title" content="Code Coverage — Tesseract Crypt">
+<meta property="og:description" content="Measuring code coverage for Tesseract Crypt with gcov/lcov.">
+<meta property="og:url" content="https://adyoi.github.io/tesseract-crypt/coverage.html">
+<meta name="twitter:card" content="summary">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="about.html">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="hero">
+    <h1>Code <em>coverage</em></h1>
+    <p class="lead">
+      This project supports code coverage instrumentation using GCC/Clang with
+      gcov/lcov. Activate it with the <code>TESS_COVERAGE</code> CMake option.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="local">Local usage (Linux/macOS with GCC/Clang)</h2>
+<pre class="code">mkdir -p build-coverage
+cd build-coverage
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DTESS_COVERAGE=ON -DTESS_BUILD_TESTS=ON
+cmake --build . --parallel
+ctest --output-on-failure</pre>
+    <p>Generate an HTML report:</p>
+<pre class="code">lcov --capture --directory . --output-file coverage.info
+lcov --remove coverage.info '*/tests/*' '*/fuzz/*' '/usr/*' --output-file coverage-filtered.info
+genhtml coverage-filtered.info --output-directory coverage-html</pre>
+    <p>Open <code>coverage-html/index.html</code> in a browser.</p>
+  </section>
+
+  <section>
+    <h2 id="ci">CI integration</h2>
+    <p>
+      A dedicated CI job can upload coverage to Codecov. See
+      <code>.github/workflows/ci.yml</code> for the coverage job template.
+    </p>
+  </section>
+
+  <section>
+    <h2 id="notes">Notes</h2>
+    <ul>
+      <li><code>TESS_COVERAGE</code> adds <code>--coverage -O0 -g</code> flags.</li>
+      <li>Exclude tests, fuzz harnesses, and system headers from reports for cleaner metrics.</li>
+      <li>MSVC coverage is supported via Visual Studio's coverage tools (separate workflow).</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/INSTALL.md">Install</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+        <a href="audit-readiness.html">Audit readiness</a>
+        <a href="coverage.html">Coverage</a>
+      </nav>
+      <span class="foot-meta mono">v0.1.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

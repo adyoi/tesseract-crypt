@@ -6,11 +6,20 @@
 <title>Format Specification — Tesseract Crypt</title>
 <meta name="description" content="Tesseract v1/v2 binary message formats: 264-byte TSCR header, X25519+BLAKE2b key schedule, XChaCha20-Poly1305 chunks, multi-recipient key blocks, and TSK1/TSK2/TSKp key files.">
 <link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://adyoi.github.io/tesseract-crypt/format.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tesseract Crypt">
+<meta property="og:title" content="Format Specification — Tesseract Crypt">
+<meta property="og:description" content="Tesseract v1/v2 binary message formats: 264-byte TSCR header, X25519+BLAKE2b key schedule, XChaCha20-Poly1305 chunks, multi-recipient key blocks, and TSK1/TSK2/TSKp key files.">
+<meta property="og:url" content="https://adyoi.github.io/tesseract-crypt/format.html">
+<meta name="twitter:card" content="summary">
 <link rel="alternate" hreflang="en" href="format.html">
 <link rel="alternate" hreflang="id" href="id/format.html">
 <link rel="alternate" hreflang="x-default" href="format.html">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site">
   <div class="wrap">
     <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
@@ -18,14 +27,14 @@
       <a href="index.html">Home</a>
       <a href="cli.html">CLI Reference</a>
       <a href="format.html" class="active">Format Spec</a>
-      <a href="tentang.html">About</a>
+      <a href="about.html">About</a>
       <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
       <a href="id/format.html" lang="id" hreflang="id">ID</a>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <section class="hero">
     <h1>Format <em>specification</em></h1>
     <p class="lead">
@@ -210,8 +219,9 @@ v2: header(264) || block_1(80) … block_N(80) || (u32le len(ct_i) || ct_i)*</pr
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
-        <a href="audit-readiness.md">Audit readiness</a>
-        <a href="coverage.md">Coverage</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/INSTALL.md">Install</a>
+        <a href="audit-readiness.html">Audit readiness</a>
+        <a href="coverage.html">Coverage</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

@@ -142,10 +142,10 @@ A header-only C++17 wrapper is available in `<tesseract/tesseract.hpp>`
 - [Landing page](https://adyoi.github.io/tesseract-crypt/) — overview & quick start
 - [CLI reference](https://adyoi.github.io/tesseract-crypt/cli.html)
 - [Format specification](https://adyoi.github.io/tesseract-crypt/format.html)
-- [About & comparison](https://adyoi.github.io/tesseract-crypt/tentang.html)
+- [About & comparison](https://adyoi.github.io/tesseract-crypt/about.html)
 - [Installation guide](INSTALL.md) — all platforms, packages & from source
-- [Audit readiness](docs/audit-readiness.md) — checklist for security auditors
-- [Code coverage](docs/coverage.md) — gcov/lcov workflow
+- [Audit readiness](https://adyoi.github.io/tesseract-crypt/audit-readiness.html) — checklist for security auditors
+- [Code coverage](https://adyoi.github.io/tesseract-crypt/coverage.html) — gcov/lcov workflow
 
 Indonesian versions live under [adyoi.github.io/tesseract-crypt/id/](https://adyoi.github.io/tesseract-crypt/id/).
 

@@ -6,11 +6,20 @@
 <title>CLI Reference — Tesseract Crypt</title>
 <meta name="description" content="Reference for every tesseract-crypt command: keygen, pubkey, encrypt, decrypt, rekey, sign, verify, inspect, info, version, help.">
 <link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://adyoi.github.io/tesseract-crypt/cli.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tesseract Crypt">
+<meta property="og:title" content="CLI Reference — Tesseract Crypt">
+<meta property="og:description" content="Reference for every tesseract-crypt command: keygen, pubkey, encrypt, decrypt, rekey, sign, verify, inspect, info, version, help.">
+<meta property="og:url" content="https://adyoi.github.io/tesseract-crypt/cli.html">
+<meta name="twitter:card" content="summary">
 <link rel="alternate" hreflang="en" href="cli.html">
 <link rel="alternate" hreflang="id" href="id/cli.html">
 <link rel="alternate" hreflang="x-default" href="cli.html">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site">
   <div class="wrap">
     <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
@@ -18,14 +27,14 @@
       <a href="index.html">Home</a>
       <a href="cli.html" class="active">CLI Reference</a>
       <a href="format.html">Format Spec</a>
-      <a href="tentang.html">About</a>
+      <a href="about.html">About</a>
       <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
       <a href="id/cli.html" lang="id" hreflang="id">ID</a>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <section class="hero">
     <h1><em>Command line</em> reference</h1>
     <p class="lead">
@@ -52,6 +61,7 @@
     <table>
       <tr><th>Option</th><th>Description</th></tr>
       <tr><td><code>-o NAME</code></td><td>Base filename (required). A trailing <code>.key</code> is ignored if typed.</td></tr>
+      <tr><td><code>--force</code></td><td>Overwrite <code>NAME.key</code> / <code>NAME.pub</code> if they already exist.</td></tr>
       <tr><td><code>--passphrase</code></td><td>Protect the private key with a passphrase (Argon2id).</td></tr>
       <tr><td><code>--kdf-ops N</code></td><td>Argon2id iteration count (opslimit).</td></tr>
       <tr><td><code>--kdf-mem MB</code></td><td>Argon2id memory in MiB.</td></tr>
@@ -78,6 +88,8 @@
       <tr><td><code>--chunk-size N</code></td><td>Chunk size (4096 … 16777216; default 65536).</td></tr>
       <tr><td><code>--no-sign</code></td><td>Disable the sender's signature.</td></tr>
       <tr><td><code>--passphrase</code></td><td>Symmetric mode: derive the key from a passphrase (Argon2id).</td></tr>
+      <tr><td><code>--kdf-ops N</code></td><td>Argon2id iteration count for the passphrase key (opslimit).</td></tr>
+      <tr><td><code>--kdf-mem MB</code></td><td>Argon2id memory for the passphrase key in MiB.</td></tr>
       <tr><td><code>--text "secret"</code></td><td>Encrypt a string (no file); armored output to stdout.</td></tr>
     </table>
 
@@ -93,6 +105,12 @@
       <tr><td><code>--require-signer SIGNER.pub</code></td><td>Require a signature from this public key (pinning).</td></tr>
       <tr><td><code>--passphrase</code></td><td>Symmetric mode: use a passphrase.</td></tr>
     </table>
+
+    <div class="note">
+      <strong>Plaintext to stdout.</strong> With <code>-i FILE</code> and no
+      <code>-o</code>, the plaintext is written to <code>stdout</code> — but only
+      after the AEAD (and signature, when requested) has been verified.
+    </div>
 
     <div class="warn">
       <strong>Important.</strong> When <code>--require-signer</code> fails the
@@ -124,6 +142,7 @@
       <tr><th>Option</th><th>Description</th></tr>
       <tr><td><code>-k OLD_KEY</code></td><td>Old recipient private key (or use <code>--old-passphrase</code> for passphrase mode).</td></tr>
       <tr><td><code>--old-passphrase PASS</code></td><td>Old passphrase if decrypting symmetric message.</td></tr>
+      <tr><td><code>--old-passphrase-file FILE</code></td><td>Read the old passphrase from a file (first line; trailing newline stripped). Mutually exclusive with the two options above.</td></tr>
       <tr><td><code>-i IN</code></td><td>Input message (default: <code>stdin</code>).</td></tr>
       <tr><td><code>-o OUT</code></td><td>Output message (default: <code>stdout</code>).</td></tr>
       <tr><td><code>-r RECIPIENT.pub</code></td><td>New recipient (repeat for multi-recipient).</td></tr>
@@ -131,6 +150,7 @@
       <tr><td><code>--require-signer SIGNER.pub</code></td><td>Require original signer.</td></tr>
       <tr><td><code>--chunk-size N</code></td><td>Chunk size (4096 … 16777216).</td></tr>
       <tr><td><code>--no-sign</code></td><td>Disable signing of new message.</td></tr>
+      <tr><td><code>--armor</code></td><td>Force <code>BEGIN</code>/<code>END</code>-labelled text output (instead of binary file).</td></tr>
     </table>
 
     <h3 id="inspect"><span class="mono">inspect</span></h3>
@@ -214,8 +234,9 @@ tesseract-crypt info -k alice.key</pre>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
-        <a href="audit-readiness.md">Audit readiness</a>
-        <a href="coverage.md">Coverage</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/INSTALL.md">Install</a>
+        <a href="audit-readiness.html">Audit readiness</a>
+        <a href="coverage.html">Coverage</a>
       </nav>
       <span class="foot-meta mono">v0.1.0 · © 2026</span>
     </div>

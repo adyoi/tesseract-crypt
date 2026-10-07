@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About &amp; Comparison — Tesseract Crypt</title>
+<meta name="description" content="Tesseract design advantages and comparison with age, GnuPG, OpenSSL enc, sops, Picocrypt, and VeraCrypt — X25519 hybrid, Ed25519 sign-then-encrypt, XChaCha20-Poly1305, Argon2id.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://adyoi.github.io/tesseract-crypt/about.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Tesseract Crypt">
+<meta property="og:title" content="About &amp; Comparison — Tesseract Crypt">
+<meta property="og:description" content="Tesseract design advantages and comparison with age, GnuPG, OpenSSL enc, sops, Picocrypt, and VeraCrypt.">
+<meta property="og:url" content="https://adyoi.github.io/tesseract-crypt/about.html">
+<meta name="twitter:card" content="summary">
+<link rel="alternate" hreflang="en" href="about.html">
+<link rel="alternate" hreflang="id" href="id/tentang.html">
+<link rel="alternate" hreflang="x-default" href="about.html">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="about.html" class="active">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="id/tentang.html" lang="id" hreflang="id">ID</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="main">
+  <section class="hero">
+    <h1>Why <em>Tesseract</em>?</h1>
+    <p class="lead">
+      Tesseract is designed to be a single CLI tool combining
+      <strong>public-key encryption</strong> <em>and</em>
+      <strong>passphrase encryption</strong>, a <strong>built-in signature</strong>
+      with sender <strong>pinning</strong>, <strong>per-chunk anti-tamper</strong>
+      while streaming, and <strong>locked keys</strong> — a combination that
+      does not exist in any other modern file-encryption tool in a single
+      binary.
+    </p>
+  </section>
+
+  <section>
+    <h2>Design advantages</h2>
+    <div class="grid">
+      <article>
+        <h3>Hybrid X25519 + forward secrecy</h3>
+        <p>Every message uses an <em>ephemeral</em> X25519 key; the static DH
+        against the recipient's identity is still computed. Messages open only
+        for the right recipient, and no message ever shares a static key.</p>
+      </article>
+      <article>
+        <h3>Built-in sign-then-encrypt</h3>
+        <p>Ed25519ph streaming is built into the encryption flow:
+        <code>encrypt -k alice.key -r bob.pub</code> produces a signed message
+        directly. Optional verification with
+        <code>--require-signer alice.pub</code> (identity pinning).</p>
+      </article>
+      <article>
+        <h3>Per-chunk anti-tamper</h3>
+        <p>The header is the AAD for every chunk
+        (<code>header ‖ index ‖ final</code>). Reorder, splice, and truncation
+        are all detected cryptographically — not just an end-to-end check.</p>
+      </article>
+      <article>
+        <h3>Constant-memory streaming</h3>
+        <p>64 KiB chunks by default (4 KiB–16 MiB): multi-GB files are
+        processed without loading the whole plaintext into RAM. Unlike
+        Picocrypt, which caps files at 512&nbsp;MiB.</p>
+      </article>
+      <article>
+        <h3>Two modes, one format</h3>
+        <p><code>encrypt -r recipient.pub</code> (asymmetric) <em>or</em>
+        <code>--passphrase</code> (symmetric) — the CLI rejects both at once,
+        with none of the ambiguity of complex PGP flows.</p>
+      </article>
+      <article>
+        <h3>Capped Argon2id + locked keys</h3>
+        <p>Passphrases use Argon2id (memory-hard) with hard
+        <code>ops/mem</code> caps when opening untrusted headers (anti-DoS).
+        Private keys can be stored <em>locked</em> (TSK2) and unlocked per use
+        with memory wiping.</p>
+      </article>
+      <article>
+        <h3>PEM-like armor</h3>
+        <p>TTY output is automatically wrapped in
+        <code>-----BEGIN TESSERACT MESSAGE-----</code> — safe to copy-paste
+        through email, chat, or any text channel.</p>
+      </article>
+      <article>
+        <h3>Atomic output</h3>
+        <p>Decryption writes to <code>.part</code> and renames only after the
+        AEAD and signature succeed. Authentication failure = exit code
+        <code>3</code>, with no corrupted file at the destination.</p>
+      </article>
+      <article>
+        <h3>Key rotation (rekey)</h3>
+        <p><code>tesseract-crypt rekey</code> rewraps an existing message for
+        new recipients (optionally re-signing and checking the original
+        signer) without touching the encrypted payload — rotate or extend
+        access without re-encrypting the file.</p>
+      </article>
+      <article>
+        <h3>Library + CLI hybrid</h3>
+        <p>A <strong>C11</strong> core (embeddable) + <strong>C++17</strong>
+        CLI, one binary named <code>tesseract-crypt</code> with the
+        <code>tscrypt</code> alias on Linux, Windows, macOS, and BSD.
+        <strong>MIT</strong> licensed.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Comparison with other tools</h2>
+    <p>The tools below serve different focuses (files, email, secret configs,
+    volumes). The table compares the practical capabilities most often asked
+    about:</p>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>Tesseract</th>
+          <th>age / rage</th>
+          <th>GnuPG</th>
+          <th>openssl enc</th>
+          <th>sops</th>
+          <th>Picocrypt</th>
+          <th>VeraCrypt</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Primary crypto</td>
+          <td>X25519 + XChaCha20-Poly1305</td>
+          <td>X25519 + ChaCha20-Poly1305</td>
+          <td>RSA/ECC (OpenPGP)</td>
+          <td>AES (many legacy modes without authentication)</td>
+          <td>uses age/PGP/KMS underneath</td>
+          <td>XChaCha20-Poly1305</td>
+          <td>AES/XTS (volumes)</td>
+        </tr>
+        <tr>
+          <td>Public-key</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>❌</td>
+          <td>OK</td>
+          <td>❌ (password only)</td>
+          <td>❌</td>
+        </tr>
+        <tr>
+          <td>Signing + pinning</td>
+          <td>OK built-in (<code>--require-signer</code>)</td>
+          <td>❌ (needs minisign separately)</td>
+          <td>OK (but complex)</td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>❌</td>
+          <td>❌</td>
+        </tr>
+        <tr>
+          <td>Large-file streaming</td>
+          <td>OK 64 KiB chunks, constant memory</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK</td>
+          <td>OK (secrets/config)</td>
+          <td>❌ max 512 MiB</td>
+          <td>OK volumes</td>
+        </tr>
+        <tr>
+          <td>Passphrase KDF</td>
+          <td>Argon2id (memory-hard)</td>
+          <td>scrypt</td>
+          <td>iterated S2K</td>
+          <td>—</td>
+          <td>—</td>
+          <td>Argon2id</td>
+          <td>PBKDF2</td>
+        </tr>
+        <tr>
+          <td>Per-chunk tamper detection</td>
+          <td>OK header as AAD</td>
+          <td>OK per-chunk AEAD</td>
+          <td>partial</td>
+          <td>❌ (many modes without MAC)</td>
+          <td>n/a</td>
+          <td>OK HMAC</td>
+          <td>n/a</td>
+        </tr>
+        <tr>
+          <td>Text armor</td>
+          <td>OK</td>
+          <td>OK (bech32 identity)</td>
+          <td>OK ASCII-armor</td>
+          <td>⧉ <code>-a</code> base64</td>
+          <td>n/a</td>
+          <td>❌</td>
+          <td>❌</td>
+        </tr>
+        <tr>
+          <td>Passphrase-locked keys</td>
+          <td>OK TSK2</td>
+          <td>OK encrypted identity</td>
+          <td>OK</td>
+          <td>n/a</td>
+          <td>n/a</td>
+          <td>n/a</td>
+          <td>n/a</td>
+        </tr>
+        <tr>
+          <td>Focus</td>
+          <td>files &amp; strings, encryption + signing</td>
+          <td>files, minimal</td>
+          <td>email/certificates/trust web</td>
+          <td>quick &amp; dirty</td>
+          <td>secrets in config/CI</td>
+          <td>GUI single file</td>
+          <td>disk/containers</td>
+        </tr>
+        <tr>
+          <td>License</td>
+          <td>MIT (libsodium: ISC)</td>
+          <td>BSD-3 / MIT</td>
+          <td>GPL-3</td>
+          <td>Apache-2.0</td>
+          <td>MPL-2.0</td>
+          <td>MIT</td>
+          <td>Apache-2.0</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Design positioning</h2>
+    <div class="warn">
+      <strong>Readiness, honestly.</strong> Tesseract is still
+      <span class="mono">v0.1.0</span> and <em>not yet audited by a third
+      party</em>. age and GnuPG have been audited for years and are widely
+      adopted — for critical production environments they remain the
+      references. Tesseract offers a <strong>combination of features</strong>
+      (public-key + passphrase, built-in signing with pinning, anti-tamper
+      streaming, locked keys, memory hygiene) in a single modern CLI that no
+      other tool has.
+    </div>
+    <p>
+      The technical edge does not claim "more secure than AES/GnuPG" — the
+      encryption uses audited libsodium primitives (X25519,
+      XChaCha20-Poly1305, Ed25519, Argon2id). What is new is the
+      <em>architecture</em>: a 264-byte header format, hybrid key schedule,
+      per-chunk AAD, and verified atomic writes — all documented in the
+      <a href="format.html">Format Specification</a>.
+    </p>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/INSTALL.md">Install</a>
+        <a href="audit-readiness.html">Audit readiness</a>
+        <a href="coverage.html">Coverage</a>
+      </nav>
+      <span class="foot-meta mono">v0.1.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
