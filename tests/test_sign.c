@@ -28,7 +28,7 @@ int main(void) {
           TESS_OK);
 
     /* modified message fails */
-    copy = (uint8_t *)strdup(msg);
+    copy = (uint8_t *)test_strdup(msg);
     CHECK(copy != NULL);
     copy[0] = (uint8_t)(copy[0] ^ 1);
     CHECK(tess_verify(copy, strlen(msg), pub, sig) == TESS_ERR_SIGNATURE);
