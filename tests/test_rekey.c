@@ -5,7 +5,6 @@ int main(void) {
     tess_key *a_s = NULL, *a_p = NULL;
     tess_key *b_s = NULL, *b_p = NULL;
     tess_key *c_s = NULL, *c_p = NULL;
-    const tess_key *recips1[1];
     const tess_key *recips2[2];
     uint8_t *pt = NULL;
     uint8_t *ct = NULL, *ct2 = NULL, *out = NULL;
@@ -18,7 +17,6 @@ int main(void) {
     CHECK_ST(tess_keygen(&b_s, &b_p), TESS_OK);
     CHECK_ST(tess_keygen(&c_s, &c_p), TESS_OK);
 
-    recips1[0] = a_p;
     recips2[0] = b_p;
     recips2[1] = c_p;
 

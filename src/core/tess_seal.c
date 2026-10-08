@@ -67,7 +67,7 @@ static int id_set(const char *id) {
  * it when it differs from in->recipients). */
 static tess_status seal_resolve_keys(const tess_seal_options *in,
                                      tess_seal_options *out,
-                                     const tess_key *const **recip_view,
+                                     const tess_key ***recip_view,
                                      tess_key **owned, size_t *n_owned) {
     tess_status rc = TESS_OK;
     size_t i, n = 0;
@@ -313,11 +313,16 @@ void tess_chunk_nonce(
     const uint8_t base[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES],
     uint64_t index,
     uint8_t out[crypto_aead_xchacha20poly1305_ietf_NPUBBYTES]) {
-    int j;
+    /* XOR the 8-byte index (big-endian) into the last 8 bytes of the nonce */
     memcpy(out, base, crypto_aead_xchacha20poly1305_ietf_NPUBBYTES);
-    for (j = 0; j < 8; j++) {
-        out[16 + j] ^= (uint8_t)((index >> (56 - 8 * j)) & 0xffu);
-    }
+    out[16] ^= (uint8_t)(index >> 56);
+    out[17] ^= (uint8_t)(index >> 48);
+    out[18] ^= (uint8_t)(index >> 40);
+    out[19] ^= (uint8_t)(index >> 32);
+    out[20] ^= (uint8_t)(index >> 24);
+    out[21] ^= (uint8_t)(index >> 16);
+    out[22] ^= (uint8_t)(index >> 8);
+    out[23] ^= (uint8_t)index;
 }
 
 void tess_chunk_aad(const uint8_t header[TESS_HEADER_BYTES], uint64_t index,
@@ -989,17 +994,18 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
     if (rc != TESS_OK) goto fail;
 
     {
-        /* output fields live in a caller-owned (nominally const) struct */
-        tess_open_options *mut = (tess_open_options *)(uintptr_t)opt;
+        /* output fields live in a caller-owned struct; use a mutable copy
+         * of the options to write results without casting away const */
+        tess_open_options mut = *opt;
         int signed_msg = (st.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
-        if (mut->out_signed != NULL) {
-            *mut->out_signed = signed_msg;
+        if (mut.out_signed != NULL) {
+            *mut.out_signed = signed_msg;
         }
         if (signed_msg) {
-            memcpy(mut->out_signer_pk, st.h.sender_ed_pk,
-                   sizeof mut->out_signer_pk);
+            memcpy(mut.out_signer_pk, st.h.sender_ed_pk,
+                   sizeof mut.out_signer_pk);
         } else {
-            memset(mut->out_signer_pk, 0, sizeof mut->out_signer_pk);
+            memset(mut.out_signer_pk, 0, sizeof mut.out_signer_pk);
         }
     }
 
@@ -1539,14 +1545,14 @@ out_state:
         pw_active = 0;
         if (rc == TESS_OK) {
             int signed_msg = (st_ctx.h.flags & TESS_FLAG_SIGNED) ? 1 : 0;
-            tess_open_file_options *mut =
-                (tess_open_file_options *)(uintptr_t)opt;
-            if (opt->out_signed != NULL) *opt->out_signed = signed_msg;
+            /* Use a mutable copy instead of casting away const */
+            tess_open_file_options mut = *opt;
+            if (mut.out_signed != NULL) *mut.out_signed = signed_msg;
             if (signed_msg) {
-                memcpy(mut->out_signer_pk, st_ctx.h.sender_ed_pk,
-                       sizeof mut->out_signer_pk);
+                memcpy(mut.out_signer_pk, st_ctx.h.sender_ed_pk,
+                       sizeof mut.out_signer_pk);
             } else {
-                memset(mut->out_signer_pk, 0, sizeof mut->out_signer_pk);
+                memset(mut.out_signer_pk, 0, sizeof mut.out_signer_pk);
             }
         }
     }

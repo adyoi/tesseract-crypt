@@ -111,12 +111,12 @@ static void pack_secret(const tess_key *k, uint8_t blob[96]) {
     memcpy(blob + 32, k->e_sk, 64);
 }
 
-static tess_status lock_derive(const char *pass, const uint8_t salt[16],
+static tess_status lock_derive(const char *pass, size_t pass_len, const uint8_t salt[16],
                                uint32_t ops, uint64_t mem,
                                uint8_t key[crypto_kdf_KEYBYTES]) {
     /* parameters are validated by the callers; a failure here is an
      * allocation failure inside Argon2id */
-    if (crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, strlen(pass), salt,
+    if (crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, pass_len, salt,
                       ops, mem, crypto_pwhash_ALG_ARGON2ID13) != 0) {
         return TESS_ERR_NOMEM;
     }
@@ -129,6 +129,7 @@ static tess_status key_lock_into(tess_key *k, const char *passphrase,
     uint8_t subkey[crypto_kdf_KEYBYTES];
     unsigned long long clen = 0;
     tess_status st;
+    size_t pass_len = strlen(passphrase);
 
     if (passphrase == NULL || passphrase[0] == '\0') {
         return TESS_ERR_INVALID_ARG;
@@ -141,7 +142,7 @@ static tess_status key_lock_into(tess_key *k, const char *passphrase,
 
     randombytes_buf(k->lock_salt, sizeof k->lock_salt);
     randombytes_buf(k->lock_nonce, sizeof k->lock_nonce);
-    st = lock_derive(passphrase, k->lock_salt, ops, mem, subkey);
+    st = lock_derive(passphrase, pass_len, k->lock_salt, ops, mem, subkey);
     if (st != TESS_OK) {
         sodium_memzero(subkey, sizeof subkey);
         return st;
@@ -179,6 +180,7 @@ tess_status tess_key_unlock(tess_key *key, const char *passphrase) {
     uint8_t blob[96];
     unsigned long long blen = 0;
     tess_status st;
+    size_t pass_len = strlen(passphrase);
 
     if (key == NULL || !key->is_secret) return TESS_ERR_INVALID_ARG;
     if (!key->is_locked) return TESS_OK;
@@ -191,7 +193,7 @@ tess_status tess_key_unlock(tess_key *key, const char *passphrase) {
         return TESS_ERR_FORMAT;
     }
 
-    st = lock_derive(passphrase, key->lock_salt, key->lock_ops, key->lock_mem,
+    st = lock_derive(passphrase, pass_len, key->lock_salt, key->lock_ops, key->lock_mem,
                      subkey);
     if (st != TESS_OK) {
         sodium_memzero(subkey, sizeof subkey);
@@ -330,6 +332,13 @@ tess_status tess_key_parse(const char *armored, const char *passphrase,
         memcpy(k->lock_salt, raw + 68, 16);
         k->lock_ops = tess_rd_u32(raw + 84);
         k->lock_mem = tess_rd_u64(raw + 88);
+        /* validate argon2 parameters before using them */
+        if (k->lock_ops < 1 || k->lock_ops > TESS_ARGON_MAX_OPS ||
+            k->lock_mem < (64ull * 1024ull) ||
+            k->lock_mem > TESS_ARGON_MAX_MEM) {
+            st = TESS_ERR_FORMAT;
+            goto fail;
+        }
         memcpy(k->lock_nonce, raw + 96, 24);
         memcpy(k->lock_blob, raw + 120, sizeof k->lock_blob);
         k->is_locked = 1;

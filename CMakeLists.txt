@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(tesseract-crypt
-    VERSION 0.2.0
+    VERSION 0.1.0
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
     LANGUAGES C CXX)
 
@@ -29,14 +29,11 @@ endif()
 # ------------------------------------------------------------------ #
 # libsodium                                                           #
 # ------------------------------------------------------------------ #
-find_package(unofficial-sodium CONFIG QUIET)
-if(TARGET unofficial-sodium::sodium)
-    set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
-else()
-    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-    find_package(Sodium REQUIRED)
-    set(TESS_SODIUM_TARGET Sodium::sodium)
-endif()
+# Prefer the project's FindSodium.cmake to avoid issues with
+# unofficial-sodium config package having broken paths.
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+find_package(Sodium REQUIRED)
+set(TESS_SODIUM_TARGET Sodium::sodium)
 
 # ------------------------------------------------------------------ #
 # warnings / sanitizers                                               #

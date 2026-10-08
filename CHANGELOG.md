@@ -3,7 +3,7 @@
 All notable changes to Tesseract Crypt are documented here, following
 [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — 0.1.0
+## [0.1.0] — 2026-10-08
 
 ### Added
 
@@ -51,17 +51,29 @@ All notable changes to Tesseract Crypt are documented here, following
 
 ### Fixed
 
-- Armor buffer sizing overflow on long labels.
-- Dearmor test corruption logic.
-- `out_signed` not propagated on armored file decrypt path.
-- Windows `rename()` not replacing destination file → `tess_replace_file`.
-- `getpass` reading a line from stdin when non-TTY.
+- **Security**: Passphrase length timing leak in Argon2id KDF — `lock_derive`
+  now accepts explicit passphrase length instead of using `strlen()`.
+- **Security**: Buffer overflow in `tess_armor` — added overflow checks for
+  `need` calculation.
+- **Security**: Integer overflow in `tess_read_file` — added check for `sz + 1`
+  overflow before allocation.
+- **Correctness**: Const violation in `tess_open` and `tess_open_file` —
+  replaced casts with mutable local copies.
+- **Validation**: Added explicit validation in `tess_sign` and `tess_verify`
+  to fail fast with `TESS_ERR_INVALID_ARG` for wrong key types.
+- **Validation**: Locked key parsing now validates Argon2id parameters before
+  attempting unlock.
+- **Optimization**: `tess_chunk_nonce` unrolled loop for better performance.
+- **Build**: Fixed CMake to prefer project's `FindSodium.cmake` over broken
+  `unofficial-sodium` config package.
+- **Test**: Removed unused variable warning in `test_rekey.c`.
 
 ### Security
 
 - Argon2id bounds when reading untrusted header/blob:
   ≤ 16 ops, ≤ 4 GiB memory, min 64 KiB.
 - All sensitive material is `sodium_memzero`; private keys `sodium_mlock`.
+- Passphrase handling uses constant-time length where applicable.
 
 ### Notes
 

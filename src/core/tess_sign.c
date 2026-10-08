@@ -76,6 +76,10 @@ tess_status tess_sign(const uint8_t *msg, size_t msg_len, const tess_key *secret
     if ((msg == NULL && msg_len > 0) || secret == NULL || sig == NULL) {
         return TESS_ERR_INVALID_ARG;
     }
+    /* Fail fast: signing requires an unlocked secret key */
+    if (!secret->is_secret || secret->is_locked) {
+        return TESS_ERR_INVALID_ARG;
+    }
     tess_sign_begin(&c);
     st = tess_sign_update(&c, msg, msg_len);
     if (st != TESS_OK) return st;
@@ -89,6 +93,10 @@ tess_status tess_verify(const uint8_t *msg, size_t msg_len,
     tess_status st;
 
     if ((msg == NULL && msg_len > 0) || public_key == NULL || sig == NULL) {
+        return TESS_ERR_INVALID_ARG;
+    }
+    /* Fail fast: verification requires a public key */
+    if (public_key->is_secret) {
         return TESS_ERR_INVALID_ARG;
     }
     tess_verify_begin(&c);

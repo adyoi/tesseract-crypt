@@ -111,6 +111,11 @@ tess_status tess_armor(const uint8_t *in, size_t len, const char *label,
 
     b64len = sodium_base64_encoded_len(len, sodium_base64_VARIANT_ORIGINAL);
     /* header + body (wrapped) + footer + NUL; generous upper bound */
+    if (b64len > SIZE_MAX / 2 ||
+        label_len > SIZE_MAX / 4 ||
+        40 + 2 * label_len + b64len + (b64len / ARMOR_LINE) + 8 > SIZE_MAX) {
+        return TESS_ERR_NOMEM;
+    }
     need = 40 + 2 * label_len + b64len + (b64len / ARMOR_LINE) + 8;
     buf = (char *)malloc(need);
     if (buf == NULL) return TESS_ERR_NOMEM;
@@ -267,6 +272,11 @@ tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len) {
         return TESS_ERR_IO;
     }
     if (sz > (uint64_t)(SIZE_MAX - 1)) { /* file too large for this platform */
+        fclose(f);
+        return TESS_ERR_NOMEM;
+    }
+    /* Check for overflow in sz + 1 */
+    if (sz == SIZE_MAX) {
         fclose(f);
         return TESS_ERR_NOMEM;
     }
