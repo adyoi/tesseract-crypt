@@ -63,7 +63,7 @@ jobs:
           find site -maxdepth 4 -type f | sort | head -30
 
       - name: Upload site/
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
