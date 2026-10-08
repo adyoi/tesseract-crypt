@@ -29,22 +29,31 @@ endif()
 # ------------------------------------------------------------------ #
 # libsodium                                                           #
 # ------------------------------------------------------------------ #
-# Try config package first (works with vcpkg on Windows), but fall back
-# to the project's FindSodium.cmake if the imported target is broken.
+# Try the unofficial-sodium config package first (provided by vcpkg on Windows).
+# If not found or broken, fall back to the project's FindSodium.cmake which
+# works with system packages (libsodium-dev, homebrew, vcpkg without config, etc.).
 find_package(unofficial-sodium CONFIG QUIET)
 if(TARGET unofficial-sodium::sodium)
-    # Validate that the imported target has a valid location
-    get_target_property(_loc unofficial-sodium::sodium IMPORTED_LOCATION_RELEASE)
+    # Validate that the imported target has a valid location for the
+    # current build configuration (handles both single and multi-config).
+    get_target_property(_loc unofficial-sodium::sodium IMPORTED_LOCATION)
+    if(NOT _loc)
+        # Multi-config: try per-config property
+        string(TOUPPER "${CMAKE_BUILD_TYPE}" _cfg)
+        get_target_property(_loc unofficial-sodium::sodium "IMPORTED_LOCATION_${_cfg}")
+    endif()
     if(_loc AND EXISTS "${_loc}")
         set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
     else()
-        # Config package exists but is broken; use fallback
-        list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-        find_package(Sodium REQUIRED)
-        set(TESS_SODIUM_TARGET Sodium::sodium)
+        message(WARNING "unofficial-sodium config package found but target location invalid; falling back to FindSodium.cmake")
+        set(_fallback_sodium TRUE)
     endif()
 else()
-    # No config package; use fallback finder
+    set(_fallback_sodium TRUE)
+endif()
+
+if(_fallback_sodium)
+    # Fallback: use project's FindSodium.cmake (works everywhere)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
     find_package(Sodium REQUIRED)
     set(TESS_SODIUM_TARGET Sodium::sodium)
