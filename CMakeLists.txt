@@ -29,11 +29,26 @@ endif()
 # ------------------------------------------------------------------ #
 # libsodium                                                           #
 # ------------------------------------------------------------------ #
-# Prefer the project's FindSodium.cmake to avoid issues with
-# unofficial-sodium config package having broken paths.
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-find_package(Sodium REQUIRED)
-set(TESS_SODIUM_TARGET Sodium::sodium)
+# Try config package first (works with vcpkg on Windows), but fall back
+# to the project's FindSodium.cmake if the imported target is broken.
+find_package(unofficial-sodium CONFIG QUIET)
+if(TARGET unofficial-sodium::sodium)
+    # Validate that the imported target has a valid location
+    get_target_property(_loc unofficial-sodium::sodium IMPORTED_LOCATION_RELEASE)
+    if(_loc AND EXISTS "${_loc}")
+        set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
+    else()
+        # Config package exists but is broken; use fallback
+        list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+        find_package(Sodium REQUIRED)
+        set(TESS_SODIUM_TARGET Sodium::sodium)
+    endif()
+else()
+    # No config package; use fallback finder
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+    find_package(Sodium REQUIRED)
+    set(TESS_SODIUM_TARGET Sodium::sodium)
+endif()
 
 # ------------------------------------------------------------------ #
 # warnings / sanitizers                                               #
