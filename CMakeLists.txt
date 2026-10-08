@@ -29,23 +29,27 @@ endif()
 # ------------------------------------------------------------------ #
 # libsodium                                                           #
 # ------------------------------------------------------------------ #
-# Try the unofficial-sodium config package first (provided by vcpkg on Windows).
-# If not found or broken, fall back to the project's FindSodium.cmake which
-# works with system packages (libsodium-dev, homebrew, vcpkg without config, etc.).
-find_package(unofficial-sodium CONFIG QUIET)
-if(TARGET unofficial-sodium::sodium)
-    # Validate that the imported target has a valid location for the
-    # current build configuration (handles both single and multi-config).
-    get_target_property(_loc unofficial-sodium::sodium IMPORTED_LOCATION)
-    if(NOT _loc)
-        # Multi-config: try per-config property
-        string(TOUPPER "${CMAKE_BUILD_TYPE}" _cfg)
-        get_target_property(_loc unofficial-sodium::sodium "IMPORTED_LOCATION_${_cfg}")
-    endif()
-    if(_loc AND EXISTS "${_loc}")
-        set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
+# On Windows with vcpkg, the unofficial-sodium config package provides
+# a proper imported target. On Unix-like systems (CI, distros, macOS),
+# use the project's FindSodium.cmake fallback which works with system packages.
+if(WIN32)
+    find_package(unofficial-sodium CONFIG QUIET)
+    if(TARGET unofficial-sodium::sodium)
+        # Validate that the imported target has a valid location for the
+        # current build configuration (handles both single and multi-config).
+        get_target_property(_loc unofficial-sodium::sodium IMPORTED_LOCATION)
+        if(NOT _loc)
+            # Multi-config: try per-config property
+            string(TOUPPER "${CMAKE_BUILD_TYPE}" _cfg)
+            get_target_property(_loc unofficial-sodium::sodium "IMPORTED_LOCATION_${_cfg}")
+        endif()
+        if(_loc AND EXISTS "${_loc}")
+            set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
+        else()
+            message(WARNING "unofficial-sodium config package found but target location invalid; falling back to FindSodium.cmake")
+            set(_fallback_sodium TRUE)
+        endif()
     else()
-        message(WARNING "unofficial-sodium config package found but target location invalid; falling back to FindSodium.cmake")
         set(_fallback_sodium TRUE)
     endif()
 else()
