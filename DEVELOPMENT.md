@@ -214,13 +214,21 @@ UX: output to TTY → automatic armor; stdin/stdout (`-`) supported; non-zero ex
 
 | Milestone | Contents | Status |
 |-----------|----------|--------|
-| **M0 — Skeleton** | Repo structure, CMake, DEVELOPMENT, README, LICENSE, basic CI | ✅ |
-| **M1 — Core crypto** | keygen, seal/open buffer & file, sign/verify, armor, tests | ✅ |
-| **M2 — Full CLI** | All subcommands, man page, UX TTY/armor auto | ✅ |
-| **M3 — Docs & Pages** | `docs/` landing + CLI reference + format spec, deploy Pages | ✅ |
-| **M4 — Packaging** | PKGBUILD, RPM spec, `.deb`, CI release binary, APT repo on Pages | 🚧 |
-| **M5 — Hardening** | Fuzz target (libFuzzer), fuzzing CI, coverage, external audit | 🚧 |
-| **M6 — Extras** | `--rekey`, KMS/plugin backend, key rotation tooling | 🚧 |
+| **M0 — Skeleton** | Repo structure, CMake, DEVELOPMENT, README, LICENSE, basic CI | ✅ **Done** (v0.0.1) |
+| **M1 — Core crypto** | keygen, seal/open buffer & file, sign/verify, armor, tests | ✅ **Done** |
+| **M2 — Full CLI** | All subcommands, man page, UX TTY/armor auto | ✅ **Done** |
+| **M3 — Docs & Pages** | `docs/` landing + CLI reference + format spec, deploy Pages | ✅ **Done** |
+| **M4 — Packaging** | PKGBUILD (Arch), RPM spec, `.deb` recipe, CPack config, GitHub Actions release workflow, APT repo on Pages | 🚧 **In Progress** — packaging files exist; release.yml workflow configured; `scripts/build-apt-repo.sh` ready |
+| **M5 — Hardening** | LibFuzzer targets (4), fuzzing CI job (60s/target), ASan+UBSan CI job, coverage (lcov/Codecov), external audit | 🚧 **In Progress** — 4 fuzz targets implemented; CI configured; ASan/UBSan passing; coverage upload needs Codecov token |
+| **M6 — Extras** | `--rekey` subcommand, KMS/plugin backend (`tess_key_provider` callback), key rotation tooling (`scripts/rotate_keys.py`) | 🚧 **In Progress** — `rekey` CLI implemented; key provider interface in API; rotation script exists |
+
+---
+
+### v0.1.0 (2026-10-08) — **Current Release**
+- **Security fixes**: Passphrase timing leak, armor buffer overflow, read_file integer overflow, Argon2id param validation
+- **Correctness fixes**: Const violation in tess_open/tess_open_file, fail-fast sign/verify validation, CMake robust libsodium find
+- **Optimizations**: Unrolled tess_chunk_nonce loop, removed unused variable
+- **All 11 tests pass** (ASan+UBSan, GCC/Clang, MSVC, macOS)
 
 ---
 
