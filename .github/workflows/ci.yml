@@ -31,6 +31,14 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DTESS_WARNINGS_AS_ERRORS=ON
 
+      - name: Static analysis (clang-tidy)
+        if: matrix.cc == 'clang'
+        run: |
+          cmake -S . -B build-tidy -DCMAKE_BUILD_TYPE=${{ matrix.type }} \
+            -DCMAKE_C_CLANG_TIDY="clang-tidy;-checks=*;-Werror" \
+            -DCMAKE_CXX_CLANG_TIDY="clang-tidy;-checks=*;-Werror"
+          cmake --build build-tidy --parallel 2>&1 | head -100
+
       - name: Build
         run: cmake --build build --parallel
 
@@ -75,8 +83,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libsodium (vcpkg)
-        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
+      - name: Install deps (vcpkg manifest)
+        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install --x-manifest-root=.'
 
       - name: Configure
         run: >
@@ -153,6 +161,7 @@ jobs:
           ./build/fuzz_inspect   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_dearmor   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_key_parse -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
+          ./build/fuzz_open      -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
 
   coverage:
     name: Coverage (gcc · lcov)

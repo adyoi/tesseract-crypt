@@ -1,0 +1,8 @@
+{
+  "name": "tesseract-crypt",
+  "version": "0.1.0",
+  "description": "Hybrid public-key string & file encryption (libsodium)",
+  "dependencies": [
+    "libsodium"
+  ]
+}
