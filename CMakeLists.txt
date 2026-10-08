@@ -66,8 +66,8 @@ endif()
 # ------------------------------------------------------------------ #
 # warnings / sanitizers                                               #
 # ------------------------------------------------------------------ #
-# add_compile_options(...) — silence MSVC CRT deprecation (fopen etc.)
-if(MSVC)
+# silence MSVC CRT deprecation (fopen etc.) — also needed for Clang targeting MSVC runtime
+if(MSVC OR (CMAKE_C_COMPILER_ID STREQUAL "Clang" AND WIN32))
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
