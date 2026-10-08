@@ -11,15 +11,7 @@ find_path(SODIUM_INCLUDE_DIR
         /usr/local/include
         /opt/homebrew/include
         /opt/local/include
-    PATH_SUFFIXES sodium
-    NO_DEFAULT_PATH)
-
-# If not found with NO_DEFAULT_PATH, try standard search
-if(NOT SODIUM_INCLUDE_DIR)
-    find_path(SODIUM_INCLUDE_DIR
-        NAMES sodium.h
-        PATH_SUFFIXES sodium)
-endif()
+    PATH_SUFFIXES sodium)
 
 # Search standard locations for libsodium
 find_library(SODIUM_LIBRARY
@@ -30,14 +22,7 @@ find_library(SODIUM_LIBRARY
         /usr/lib/aarch64-linux-gnu
         /usr/local/lib
         /opt/homebrew/lib
-        /opt/local/lib
-    NO_DEFAULT_PATH)
-
-# If not found with NO_DEFAULT_PATH, try standard search
-if(NOT SODIUM_LIBRARY)
-    find_library(SODIUM_LIBRARY
-        NAMES sodium libsodium)
-endif()
+        /opt/local/lib)
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Sodium
