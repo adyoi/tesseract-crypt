@@ -61,6 +61,7 @@ if(_fallback_sodium)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
     find_package(Sodium REQUIRED)
     set(TESS_SODIUM_TARGET Sodium::sodium)
+    message(STATUS "Using libsodium from: ${SODIUM_LIBRARY} (includes: ${SODIUM_INCLUDE_DIR})")
 endif()
 
 # ------------------------------------------------------------------ #
