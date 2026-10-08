@@ -50,7 +50,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         {
             if (again_len != out_len || memcmp(again, out, out_len) != 0)
             {
-                abort(); /* codec is not invertible */
+                return 1; /* codec is not invertible */
             }
         }
         tess_free(armored);

@@ -33,15 +33,15 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     {
         /* invariants a validated header must satisfy */
         if (info.version != 1 && info.version != 2)
-            abort();
+            return 1;
         if (info.mode < TESS_MODE_PUBLICKEY || info.mode > TESS_MODE_PASSPHRASE)
         {
-            abort();
+            return 1;
         }
         if (info.recipient_count > TESS_MAX_RECIPIENTS)
-            abort();
+            return 1;
         if (info.chunk_size > TESS_MAX_CHUNK)
-            abort();
+            return 1;
     }
     return 0;
 }
