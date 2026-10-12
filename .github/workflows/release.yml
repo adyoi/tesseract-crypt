@@ -61,6 +61,26 @@ jobs:
       - name: Package (CPack)
         run: cmake --build build --config Release --target package
 
+      - name: Build Windows installer (Inno Setup)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          $ver = "${{ github.ref_name }}"
+          if ($ver.StartsWith('v')) { $ver = $ver.Substring(1) }
+          if (-not $ver) { $ver = "1.0.0" }
+          New-Item -ItemType Directory -Force stage | Out-Null
+          Copy-Item build/Release/tesseract-crypt.exe stage/
+          Copy-Item build/Release/tscrypt.exe stage/
+          Copy-Item LICENSE stage/
+          # libsodium (vcpkg dynamic triplet) needs its runtime DLL bundled.
+          $dlls = Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" `
+                    -Filter '*sodium*.dll' -ErrorAction SilentlyContinue
+          if ($dlls) { $dlls | Copy-Item -Destination stage/ }
+          & "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe" `
+              "/DAppVersion=$ver" packaging/windows/tesseract-crypt.iss
+          Get-ChildItem dist | ForEach-Object { Write-Host "installer: $($_.Name)" }
+
       - name: Collect package
         shell: pwsh
         run: |
@@ -97,11 +117,16 @@ jobs:
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Tesseract Crypt $GITHUB_REF_NAME" \
-            --generate-notes
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Tesseract Crypt $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

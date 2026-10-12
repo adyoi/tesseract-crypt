@@ -8,6 +8,9 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 
 ### Ditambahkan
 
+- **Installer Windows (Inno Setup)**: `tesseract-crypt-<versi>-windows-x64-setup.exe`,
+  dibangun otomatis oleh workflow rilis dan disertakan pada GitHub Release
+  (termasuk runtime libsodium bila diperlukan); opsi menambahkan ke `PATH`.
 - **Dokumentasi Fitur & Kinerja**: halaman
   `docs/features.html` + `docs/id/features.html` (setiap kemampuan dijelaskan)
   dan `docs/performance.html` + `docs/id/performance.html` (metodologi + angka
