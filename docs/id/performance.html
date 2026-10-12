@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kinerja — Tesseract Crypt</title>
+<meta name="description" content="Kecepatan enkripsi, dekripsi dan penandatanganan Tesseract Crypt, beserta metodologi dan cara mereproduksinya dengan scripts/bench.sh.">
+<link rel="stylesheet" href="../style.css">
+<link rel="alternate" hreflang="id" href="performance.html">
+<link rel="alternate" hreflang="en" href="../performance.html">
+<link rel="alternate" hreflang="x-default" href="../performance.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Beranda</a>
+      <a href="cli.html">Referensi CLI</a>
+      <a href="format.html">Spesifikasi Format</a>
+      <a href="features.html">Fitur</a>
+      <a href="performance.html" class="active">Kinerja</a>
+      <a href="tentang.html">Tentang</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="../performance.html" lang="en" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Kecepatan <em>enkripsi</em></h1>
+    <p class="lead">
+      Berapa detik dan MiB/s yang dibutuhkan Tesseract, diukur end-to-end lewat
+      CLI. Intinya: throughput payload simetris cepat, dan satu-satunya langkah
+      mahal adalah <strong>Argon2id</strong> pada mode passphrase.
+    </p>
+    <p class="cta">
+      <a class="btn primary" href="#table">Angka rujukan</a>
+      <a class="btn" href="#reproduce">Reproduksi</a>
+      <a class="btn" href="features.html">Fitur</a>
+    </p>
+  </section>
+
+  <section>
+    <h2 id="method">Metodologi</h2>
+    <ul>
+      <li>Diukur lewat CLI <code>tesseract-crypt</code> sungguhan, jadi
+      angkanya mencakup start-up proses, I/O file, dan framing per chunk —
+      bukan hanya cipher mentah.</li>
+      <li><strong>Terbaik dari 3</strong> kali jalan
+      (<code>scripts/bench.sh</code>), yang menghapus derau cache dingin dan
+      antivirus.</li>
+      <li>Payload: <strong>16&nbsp;MiB</strong> data acak, chunk default
+      64&nbsp;KiB (kecuali baris ukuran chunk).</li>
+      <li>Build Release (<code>-DCMAKE_BUILD_TYPE=Release</code>),
+      <code>TESS_WARNINGS_AS_ERRORS=ON</code>, libsodium upstream.</li>
+    </ul>
+    <div class="note">
+      <strong>Host rujukan.</strong> Intel Core i3-2330M @ 2.20&nbsp;GHz
+      (2 core, Sandy&nbsp;Bridge 2011) pada WSL2 — mesin yang sengaja sederhana
+      dan terbatas bandwidth. CPU modern jauh lebih cepat; anggap tabel ini
+      sebagai <em>batas bawah</em> dan cara membandingkan antar operasi.
+    </div>
+  </section>
+
+  <section>
+    <h2 id="table">Angka rujukan</h2>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Operasi</th><th class="num">Waktu</th><th class="num">Throughput</th></tr>
+      <tr><td>keygen (X25519 + Ed25519)</td><td class="num">17 ms</td><td class="num">—</td></tr>
+      <tr><td>keygen <code>--passphrase</code> (Argon2id moderate)</td><td class="num">1,6 d</td><td class="num">—</td></tr>
+      <tr><td>encrypt (public-key, ditandatangani), 16&nbsp;MiB</td><td class="num">0,79 d</td><td class="num">≈ 20 MiB/s</td></tr>
+      <tr><td>decrypt (public-key, verifikasi tanda tangan), 16&nbsp;MiB</td><td class="num">0,86 d</td><td class="num">≈ 19 MiB/s</td></tr>
+      <tr><td>sign (Ed25519ph, streaming), 16&nbsp;MiB</td><td class="num">0,55 d</td><td class="num">≈ 29 MiB/s</td></tr>
+      <tr><td>verify (Ed25519ph, streaming), 16&nbsp;MiB</td><td class="num">0,56 d</td><td class="num">≈ 29 MiB/s</td></tr>
+      <tr><td>encrypt <code>--passphrase</code> (Argon2id), 16&nbsp;MiB</td><td class="num">4,4 d</td><td class="num">≈ 4 MiB/s</td></tr>
+      <tr><td>decrypt <code>--passphrase</code>, 16&nbsp;MiB</td><td class="num">5,2 d</td><td class="num">≈ 3 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 4096</code>, 16&nbsp;MiB</td><td class="num">1,0 d</td><td class="num">≈ 16 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 65536</code> (default), 16&nbsp;MiB</td><td class="num">1,0 d</td><td class="num">≈ 15 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 1048576</code>, 16&nbsp;MiB</td><td class="num">1,1 d</td><td class="num">≈ 14 MiB/s</td></tr>
+      <tr><td>encrypt, 3 penerima (format v2), 16&nbsp;MiB</td><td class="num">1,1 d</td><td class="num">≈ 15 MiB/s</td></tr>
+      <tr><td>decrypt, 3 penerima, 16&nbsp;MiB</td><td class="num">0,85 d</td><td class="num">≈ 19 MiB/s</td></tr>
+      <tr><td>encrypt <code>--armor</code>, 1&nbsp;KiB</td><td class="num">22 ms</td><td class="num">—</td></tr>
+    </table>
+    </div>
+    <p>Pada host ini satu file 16&nbsp;MiB dienkripsi jauh di bawah satu detik,
+    dan jalan yang sama berulang dalam rentang sekitar 2&times;. Perbedaan antar
+    baris ukuran chunk berada di dalam rentang derau itu — itu <em>tidak</em>
+    menandakan keunggulan nyata satu ukuran chunk atas yang lain.</p>
+  </section>
+
+  <section>
+    <h2 id="reading">Membaca angkanya</h2>
+    <h3>Argon2id mendominasi mode passphrase</h3>
+    <p>Perhatikan selisihnya: enkripsi public-key 16&nbsp;MiB ≈ 0,8&nbsp;d,
+    sedangkan enkripsi passphrase ≈ 4,4&nbsp;d. Sebagian besar selisih itu
+    adalah derivasi kunci <strong>Argon2id</strong> (≈ 1,6&nbsp;d, dan berjalan
+    lagi saat dekripsi), bukan cipher-nya. Jika mengenkripsi banyak data dengan
+    passphrase, turunkan satu kunci lalu enkripsi banyak pesan dengan kunci itu.</p>
+    <h3>Throughput payload mengikuti CPU</h3>
+    <p>XChaCha20-Poly1305 dan BLAKE2b bukan hambatannya — dual-core 2011 inilah
+    hambatannya. Pada core desktop modern, AEAD libsodium biasanya mengalir pada
+    <strong>1–2&nbsp;GiB/s</strong> dan tanda tangan Ed25519ph pada beberapa
+    ratus MiB/s, yakni 20–100&times; angka ini. CLI menambahkan framing chunk
+    dan satu pass ekstra untuk tanda tangan.</p>
+    <h3>Penerima murah, tanda tangan menambah satu pass</h3>
+    <p>Tiap penerima tambahan berbiaya satu X25519 + satu pembungkusan kunci 80
+    byte — dapat diabaikan dibanding payload nyata (lihat betapa dekatnya baris
+    3 penerima dengan yang 1 penerima). Sign-then-encrypt membaca plaintext satu
+    kali lagi untuk menghasilkan tanda tangan Ed25519ph streaming.</p>
+    <h3>Ukuran chunk hampir tak berpengaruh</h3>
+    <p>Chunk 4&nbsp;KiB → 1&nbsp;MiB semuanya di band yang sama. Pakai default
+    64&nbsp;KiB kecuali ada alasan: chunk lebih kecil mendeteksi korupsi lebih
+    cepat dan menahan memori lebih rendah; chunk lebih besar mengurangi overhead
+    framing pada disk yang sangat cepat.</p>
+  </section>
+
+  <section>
+    <h2 id="memory">Memori</h2>
+    <p>Enkripsi dan dekripsi antar dua file bersifat <strong>streaming</strong>:
+    memori konstan (beberapa buffer chunk) apa pun ukuran file. Jalur buffered —
+    stdin/stdout, <code>--text</code>, dan enkripsi passphrase — menahan seluruh
+    input di memori. Mode passphrase tambahan mengalokasikan working set
+    Argon2id (256&nbsp;MiB pada setelan MODERATE default).</p>
+  </section>
+
+  <section>
+    <h2 id="reproduce">Reproduksi</h2>
+    <p>Benchmark-nya skrip shell POSIX kecil yang memanggil CLI, jadi berjalan
+    di Linux, macOS, dan MSYS2/MinGW di Windows:</p>
+    <pre class="code"><span class="c"># build dulu</span>
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+
+<span class="c"># BIN [SIZE_MB]  — terbaik dari REPS (default 3) kali</span>
+scripts/bench.sh build/tscrypt 16
+
+<span class="c"># jalankan lebih banyak untuk angka yang lebih tenang</span>
+REPS=5 scripts/bench.sh build/tscrypt 64</pre>
+    <div class="warn">
+      <strong>Catatan Windows.</strong> Dengan antivirus real-time aktif,
+      jalan pertama tiap perintah bisa 10&times; lebih lambat saat scanner
+      mengklaim executable dan DLL. Fitur best-of-N skrip menangani ini; angka
+      steady-state mendekati Linux pada perangkat yang sama.
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
+      </nav>
+      <span class="foot-meta mono">v1.0.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

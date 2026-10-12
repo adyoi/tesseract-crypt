@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Performance — Tesseract Crypt</title>
+<meta name="description" content="Measured encryption, decryption and signing speed for Tesseract Crypt, plus the methodology and how to reproduce it with scripts/bench.sh.">
+<link rel="stylesheet" href="style.css">
+<link rel="alternate" hreflang="en" href="performance.html">
+<link rel="alternate" hreflang="id" href="id/performance.html">
+<link rel="alternate" hreflang="x-default" href="performance.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="features.html">Features</a>
+      <a href="performance.html" class="active">Performance</a>
+      <a href="tentang.html">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="id/performance.html" lang="id" hreflang="id">ID</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Encryption <em>speed</em></h1>
+    <p class="lead">
+      What Tesseract costs in seconds and MiB/s, measured end-to-end through the
+      CLI. The headline: symmetric payload throughput is fast, and the only
+      expensive step is <strong>Argon2id</strong> in passphrase mode.
+    </p>
+    <p class="cta">
+      <a class="btn primary" href="#table">Reference numbers</a>
+      <a class="btn" href="#reproduce">Reproduce it</a>
+      <a class="btn" href="features.html">Features</a>
+    </p>
+  </section>
+
+  <section>
+    <h2 id="method">Methodology</h2>
+    <ul>
+      <li>Measured through the actual <code>tesseract-crypt</code> CLI, so the
+      numbers include process start-up, file I/O and per-chunk framing — not
+      just the raw cipher.</li>
+      <li><strong>Best of 3</strong> runs (<code>scripts/bench.sh</code>), which
+      removes first-run cold-cache and antivirus noise.</li>
+      <li>Payload: <strong>16&nbsp;MiB</strong> of random data, default
+      64&nbsp;KiB chunks (except the chunk-size rows).</li>
+      <li>Release build (<code>-DCMAKE_BUILD_TYPE=Release</code>),
+      <code>TESS_WARNINGS_AS_ERRORS=ON</code>, upstream libsodium.</li>
+    </ul>
+    <div class="note">
+      <strong>Reference host.</strong> Intel Core i3-2330M @ 2.20&nbsp;GHz
+      (2 cores, 2011 Sandy&nbsp;Bridge) under WSL2 — a deliberately modest,
+      bandwidth-limited machine. Modern CPUs are far faster; treat the table as
+      a <em>lower bound</em> and a way to compare operations with each other.
+    </div>
+  </section>
+
+  <section>
+    <h2 id="table">Reference numbers</h2>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Operation</th><th class="num">Time</th><th class="num">Throughput</th></tr>
+      <tr><td>keygen (X25519 + Ed25519)</td><td class="num">17 ms</td><td class="num">—</td></tr>
+      <tr><td>keygen <code>--passphrase</code> (Argon2id moderate)</td><td class="num">1.6 s</td><td class="num">—</td></tr>
+      <tr><td>encrypt (public-key, signed), 16&nbsp;MiB</td><td class="num">0.79 s</td><td class="num">≈ 20 MiB/s</td></tr>
+      <tr><td>decrypt (public-key, verify sign), 16&nbsp;MiB</td><td class="num">0.86 s</td><td class="num">≈ 19 MiB/s</td></tr>
+      <tr><td>sign (Ed25519ph, streaming), 16&nbsp;MiB</td><td class="num">0.55 s</td><td class="num">≈ 29 MiB/s</td></tr>
+      <tr><td>verify (Ed25519ph, streaming), 16&nbsp;MiB</td><td class="num">0.56 s</td><td class="num">≈ 29 MiB/s</td></tr>
+      <tr><td>encrypt <code>--passphrase</code> (Argon2id), 16&nbsp;MiB</td><td class="num">4.4 s</td><td class="num">≈ 4 MiB/s</td></tr>
+      <tr><td>decrypt <code>--passphrase</code>, 16&nbsp;MiB</td><td class="num">5.2 s</td><td class="num">≈ 3 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 4096</code>, 16&nbsp;MiB</td><td class="num">1.0 s</td><td class="num">≈ 16 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 65536</code> (default), 16&nbsp;MiB</td><td class="num">1.0 s</td><td class="num">≈ 15 MiB/s</td></tr>
+      <tr><td>encrypt <code>--chunk-size 1048576</code>, 16&nbsp;MiB</td><td class="num">1.1 s</td><td class="num">≈ 14 MiB/s</td></tr>
+      <tr><td>encrypt, 3 recipients (format v2), 16&nbsp;MiB</td><td class="num">1.1 s</td><td class="num">≈ 15 MiB/s</td></tr>
+      <tr><td>decrypt, 3 recipients, 16&nbsp;MiB</td><td class="num">0.85 s</td><td class="num">≈ 19 MiB/s</td></tr>
+      <tr><td>encrypt <code>--armor</code>, 1&nbsp;KiB</td><td class="num">22 ms</td><td class="num">—</td></tr>
+    </table>
+    </div>
+    <p>On this host a single 16&nbsp;MiB file encrypts in well under a second,
+    and the same run repeats to within roughly 2&times;. Differences between the
+    chunk-size rows are inside that noise band — they do <em>not</em> indicate a
+    real advantage for one chunk size over another.</p>
+  </section>
+
+  <section>
+    <h2 id="reading">Reading the numbers</h2>
+    <h3>Argon2id dominates passphrase mode</h3>
+    <p>Look at the gap: public-key encryption of 16&nbsp;MiB is ~0.8&nbsp;s,
+    while passphrase encryption is ~4.4&nbsp;s. Most of that difference is the
+    <strong>Argon2id</strong> key derivation (~1.6&nbsp;s, and it runs again on
+    decrypt), not the cipher. If you encrypt a lot of data with a passphrase,
+    derive one key and encrypt many messages under it instead.</p>
+    <h3>Payload throughput scales with the CPU</h3>
+    <p>XChaCha20-Poly1305 and BLAKE2b are not the bottleneck here — this 2011
+    dual-core is. On a modern desktop core, libsodium's AEAD typically streams
+    at <strong>1–2&nbsp;GiB/s</strong> and Ed25519ph signing at several hundred
+    MiB/s, i.e. 20–100&times; these figures. The CLI adds chunk framing and one
+    extra pass for signing.</p>
+    <h3>Recipients are cheap, signing adds a pass</h3>
+    <p>Each extra recipient costs one X25519 + one 80-byte key wrap — a rounding
+    error on any real payload (see how close the 3-recipient rows are to the
+    1-recipient ones). Sign-then-encrypt reads the plaintext once more to
+    produce the streaming Ed25519ph signature.</p>
+    <h3>Chunk size barely matters</h3>
+    <p>4&nbsp;KiB → 1&nbsp;MiB chunks all land in the same band. Use the
+    default 64&nbsp;KiB unless you have a reason: smaller chunks detect
+    corruption sooner and keep memory lower; larger chunks reduce framing
+    overhead on very fast disks.</p>
+  </section>
+
+  <section>
+    <h2 id="memory">Memory</h2>
+    <p>Encryption and decryption between two files are <strong>streaming</strong>:
+    memory is constant (a few chunk buffers) no matter how large the file is.
+    Buffered paths — stdin/stdout, <code>--text</code> and passphrase encryption —
+    hold the whole input in memory. Passphrase mode additionally allocates the
+    Argon2id working set (256&nbsp;MiB at the default MODERATE setting).</p>
+  </section>
+
+  <section>
+    <h2 id="reproduce">Reproduce it</h2>
+    <p>The benchmark is a tiny POSIX shell script that shells out to the CLI, so
+    it runs on Linux, macOS and MSYS2/MinGW on Windows:</p>
+    <pre class="code"><span class="c"># build first</span>
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+
+<span class="c"># BIN [SIZE_MB]  — best of REPS (default 3) runs</span>
+scripts/bench.sh build/tscrypt 16
+
+<span class="c"># more repetitions for a quieter number</span>
+REPS=5 scripts/bench.sh build/tscrypt 64</pre>
+    <div class="warn">
+      <strong>Windows note.</strong> With real-time antivirus enabled the first
+      run of each command can be 10&times; slower while the scanner claims the
+      executable and DLLs. The script's best-of-N handles this; steady-state
+      numbers are close to Linux on the same hardware.
+    </div>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+      </nav>
+      <span class="foot-meta mono">v1.0.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

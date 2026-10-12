@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features — Tesseract Crypt</title>
+<meta name="description" content="Every Tesseract feature explained: key management, hybrid and passphrase encryption, multi-recipient messages, streaming, signatures, inspection, and the C/C++ library.">
+<link rel="stylesheet" href="style.css">
+<link rel="alternate" hreflang="en" href="features.html">
+<link rel="alternate" hreflang="id" href="id/features.html">
+<link rel="alternate" hreflang="x-default" href="features.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="features.html" class="active">Features</a>
+      <a href="performance.html">Performance</a>
+      <a href="tentang.html">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="id/features.html" lang="id" hreflang="id">ID</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Feature <em>reference</em></h1>
+    <p class="lead">
+      Everything the library and the CLI can do — encryption, signatures,
+      streaming, key management and the guarantees each one gives you. Every
+      description below maps to a real command or API call you can run.
+    </p>
+    <p class="cta">
+      <a class="btn primary" href="#commands">Command map</a>
+      <a class="btn" href="cli.html">CLI reference</a>
+      <a class="btn" href="performance.html">Performance</a>
+    </p>
+  </section>
+
+  <div class="toc">
+    <a href="#commands">Command map</a>
+    <a href="#keys">Key management</a>
+    <a href="#publickey">Hybrid public-key encryption</a>
+    <a href="#multi">Multi-recipient messages (v2)</a>
+    <a href="#passphrase">Passphrase mode</a>
+    <a href="#signing">Sign-then-encrypt</a>
+    <a href="#detached">Detached signatures</a>
+    <a href="#streaming">Streaming, chunking &amp; armor</a>
+    <a href="#decrypt">Decryption guarantees</a>
+    <a href="#inspect">Inspection</a>
+    <a href="#library">Library API (C &amp; C++)</a>
+    <a href="#quality">Portability, build &amp; testing</a>
+  </div>
+
+  <section>
+    <h2 id="commands">Command map</h2>
+    <p>One row per command. Full option tables live in the
+    <a href="cli.html">CLI reference</a>; exit codes are listed
+    <a href="cli.html#exit">there</a>.</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Command</th><th>Purpose</th></tr>
+      <tr><td class="mono">keygen</td><td>Create <code>NAME.key</code> (private) + <code>NAME.pub</code> (public); optionally lock the private key with a passphrase (Argon2id).</td></tr>
+      <tr><td class="mono">pubkey</td><td>Export the public half of a private key file (prompts if the key is locked).</td></tr>
+      <tr><td class="mono">encrypt</td><td>Encrypt a file or a string for one or more recipients, or with a passphrase.</td></tr>
+      <tr><td class="mono">decrypt</td><td>Decrypt a message; optionally require a specific signer.</td></tr>
+      <tr><td class="mono">sign</td><td>Create a detached Ed25519ph signature for a file.</td></tr>
+      <tr><td class="mono">verify</td><td>Check a detached signature against a public key.</td></tr>
+      <tr><td class="mono">inspect</td><td>Show a message header (mode, recipients, chunk size, signer) without decrypting.</td></tr>
+      <tr><td class="mono">info</td><td>Show a key's type and fingerprint.</td></tr>
+      <tr><td class="mono">version · help</td><td>Also available as <code>--version</code>/<code>-V</code> and <code>--help</code>/<code>-h</code>.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="keys">Key management</h2>
+    <p>Each identity is an X25519 key (encryption) <em>and</em> an Ed25519 key
+    (signing) bundled in one file. Three file formats exist — see the
+    <a href="format.html#keyfiles">format spec</a>:</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>File</th><th>Content</th><th>When</th></tr>
+      <tr><td><code>NAME.key</code> (TSK1)</td><td>Both secret keys, in the clear</td><td>Default key generation</td></tr>
+      <tr><td><code>NAME.key</code> (TSK2)</td><td>Both secret keys encrypted under a passphrase; public halves stay readable</td><td>Generated with <code>--passphrase</code></td></tr>
+      <tr><td><code>NAME.pub</code> (TSKp)</td><td>Public halves only</td><td>Safe to share</td></tr>
+    </table>
+    </div>
+    <p><code>keygen --passphrase</code> protects the private key with
+    <strong>Argon2id</strong> (libsodium's MODERATE cost by default, tunable
+    with <code>--kdf-ops N</code> and <code>--kdf-mem MB</code>). The public
+    half is deliberately left in the clear so fingerprints and
+    <code>pubkey</code> export still work without the passphrase.</p>
+    <p>In memory, secret material is zeroized with
+    <code>sodium_memzero</code> when freed, and <code>sodium_mlock</code> pins
+    the secret scalars so they are not swapped to disk.</p>
+    <pre class="code"><span class="c"># generate a keypair whose private key is locked</span>
+tesseract-crypt keygen -o alice --passphrase
+
+<span class="c"># export the public key (prompts for the passphrase)</span>
+tesseract-crypt pubkey -k alice.key -o alice.pub
+
+<span class="c"># who am I?</span>
+tesseract-crypt info -k alice.key</pre>
+  </section>
+
+  <section>
+    <h2 id="publickey">Hybrid public-key encryption</h2>
+    <p>The default mode. Every message gets a fresh <em>ephemeral</em> X25519
+    key, so one recipient key can decrypt thousands of messages without the
+    recipient's secret key ever being exposed:</p>
+    <pre class="code">dh_eph  = X25519(eph_sk, recipient_pk)          <span class="c"># forward secrecy</span>
+dh_stat = X25519(sender_sk, recipient_pk)       <span class="c"># identity binding</span>
+master  = BLAKE2b-256(key = dh_eph,
+                      in  = dh_stat || salt || "tesseract-kdf-v1")</pre>
+    <p>The second DH term <em>binds the identity</em>: a message can only be
+    opened by the intended recipient, and an attacker who replaces the
+    ciphertext cannot make it decrypt under someone else's key. Pass
+    <code>-k sender.key</code> to encrypt with that sender term and to sign
+    (see <a href="#signing">below</a>); without it the message is anonymous.</p>
+  </section>
+
+  <section>
+    <h2 id="multi">Multi-recipient messages (format v2)</h2>
+    <p>Repeat <code>-r</code> to encrypt one message for a whole team. A random
+    32-byte <em>data key</em> encrypts the payload; the data key is then
+    wrapped once per recipient under that recipient's own DH secret:</p>
+    <pre class="code">tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
+                        -k alice.key -i secret.txt -o team.enc</pre>
+    <p>Cost per extra recipient is a single X25519 operation + one 80-byte key
+    block — negligible next to any real payload. A decryptor that is not a
+    recipient is rejected with a dedicated error rather than a generic
+    authentication failure, so "this is not for you" is distinguishable from
+    "this is corrupt".</p>
+  </section>
+
+  <section>
+    <h2 id="passphrase">Passphrase mode</h2>
+    <p>When you have no public key to encrypt to, use a passphrase:
+    <code>--passphrase</code> derives the master key with
+    <strong>Argon2id</strong> (memory-hard) from the salt in the header.</p>
+    <pre class="code"><span class="c"># encrypt a file / a string with just a passphrase</span>
+tesseract-crypt encrypt --passphrase -i note.txt -o note.enc
+tesseract-crypt encrypt --passphrase --text "satu kalimat"
+
+<span class="c"># decrypt it</span>
+tesseract-crypt decrypt --passphrase -i note.enc -o note.txt</pre>
+    <div class="warn">
+      <strong>Cost.</strong> Argon2id is deliberately expensive and runs on
+      both sides. On the reference machine it costs ~1.6&nbsp;s before any
+      payload is touched, so passphrase mode is for occasional data, not for
+      bulk pipelines. See <a href="performance.html">performance</a>.
+    </div>
+    <p>Parameters written into the header are hard-capped when reading
+    untrusted input (≤ 16 ops, 4&nbsp;GiB) so a hostile file cannot exhaust
+    memory.</p>
+  </section>
+
+  <section>
+    <h2 id="signing">Sign-then-encrypt</h2>
+    <p>Passing <code>-k sender.key</code> to <code>encrypt</code> makes the tool
+    sign the plaintext with <strong>Ed25519ph</strong> (streaming variant) and
+    store the 64-byte signature in the header. Because the whole header is the
+    AAD of every chunk, the signature is verified as part of decryption —
+    before a single plaintext byte is written to disk.</p>
+    <p><code>--no-sign</code> skips it, and anonymous encryption is simply
+    <code>encrypt</code> without <code>-k</code>.</p>
+  </section>
+
+  <section>
+    <h2 id="detached">Detached signatures</h2>
+    <p>Independent of encryption, for release artifacts and patches:</p>
+    <pre class="code">tesseract-crypt sign   -k alice.key -i release.tar.gz -o release.tar.gz.sig
+tesseract-crypt verify -k alice.pub -i release.tar.gz -s release.tar.gz.sig</pre>
+    <p>Uses the same Ed25519ph construction as sign-then-encrypt, so large
+    files are streamed and never buffered whole.</p>
+  </section>
+
+  <section>
+    <h2 id="streaming">Streaming, chunking &amp; armor</h2>
+    <h3>Chunked AEAD</h3>
+    <p>The payload is encrypted in independently authenticated chunks
+    (default 64&nbsp;KiB, tunable <code>--chunk-size</code> from
+    4&nbsp;KiB to 16&nbsp;MiB). Each chunk gets its own subkey derived via
+    <code>crypto_kdf</code>, its own nonce (base nonce XOR'd with the chunk
+    index) and an AAD of <code>header&nbsp;||&nbsp;index&nbsp;||&nbsp;final</code>.
+    That is what makes reorder, splice and truncation attacks fail
+    cryptographically instead of silently corrupting output.</p>
+    <h3>When is it streaming?</h3>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Operation</th><th>Memory behaviour</th></tr>
+      <tr><td><code>encrypt</code>/<code>decrypt</code> file&nbsp;→&nbsp;file</td><td>Streaming — constant memory regardless of file size (<code>tess_seal_file</code> / <code>tess_open_file</code>)</td></tr>
+      <tr><td>stdin / stdout / <code>--text</code></td><td>Buffered — the whole input is held in memory</td></tr>
+      <tr><td><code>sign</code> / <code>verify</code></td><td>Streaming (Ed25519ph)</td></tr>
+    </table>
+    </div>
+    <h3>Armor</h3>
+    <p>Output that ends up on a TTY is wrapped as PEM-like base64 automatically;
+    <code>--armor</code> forces it, and <code>decrypt</code>/<code>inspect</code>
+    detect armored input automatically:</p>
+    <pre class="code">-----BEGIN TESSERACT MESSAGE-----
+...
+-----END TESSERACT MESSAGE-----</pre>
+  </section>
+
+  <section>
+    <h2 id="decrypt">Decryption guarantees</h2>
+    <ul>
+      <li><strong>Verify-before-write.</strong> Ciphertext goes to a
+      <code>.part</code> file that is renamed to its final name only after the
+      AEAD (and, when present, the signature) succeeds. Unauthenticated data
+      never reaches the destination path.</li>
+      <li><strong>Armored input is auto-detected</strong>, so pasting a block
+      of base64 back into the tool just works.</li>
+      <li><strong>Sender pinning</strong> with
+      <code>--require-signer signer.pub</code>: if the message was signed by
+      anyone else (or not signed), decryption fails with exit code
+      <code>3</code> and no output file is written.</li>
+      <li><strong>Recipient check.</strong> A v2 message that is not addressed
+      to your key is rejected explicitly.</li>
+      <li><strong>Truncation/reorder detection</strong> falls out of the
+      chunk AAD design — cutting the stream short is detected.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 id="inspect">Inspection</h2>
+    <p>Read metadata without any key and without decrypting:</p>
+    <pre class="code">$ tesseract-crypt inspect -i team.enc
+format version : 2
+mode           : public-key
+recipients     : 3
+signed         : yes</pre>
+  </section>
+
+  <section>
+    <h2 id="library">Library API (C &amp; C++)</h2>
+    <p><code>libtesseract_crypt</code> is a small C11 library; the CLI is a thin
+    C++17 wrapper around it. Public surface (<code>&lt;tesseract/tesseract.h&gt;</code>):</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Area</th><th>Functions</th></tr>
+      <tr><td>Keys</td><td class="mono">tess_keygen · tess_keygen_locked · tess_key_unlock · tess_key_lock · tess_key_save · tess_key_load · tess_key_serialize · tess_key_parse · tess_key_get_public · tess_key_fingerprint · tess_key_free</td></tr>
+      <tr><td>Messages</td><td class="mono">tess_seal · tess_open · tess_seal_file · tess_open_file · tess_inspect</td></tr>
+      <tr><td>Signatures</td><td class="mono">tess_sign · tess_verify · tess_sign_file · tess_verify_file</td></tr>
+      <tr><td>Armor</td><td class="mono">tess_armor · tess_dearmor · tess_is_armored</td></tr>
+      <tr><td>Utilities</td><td class="mono">tess_version · tess_strerror · tess_free</td></tr>
+    </table>
+    </div>
+    <p>A header-only C++17 wrapper lives in <code>&lt;tesseract/tesseract.hpp&gt;</code>
+    (<code>tess::key</code>, <code>tess::seal</code>, <code>tess::open</code>). The
+    public header is ABI-stable enough to link against, and CMake ships an
+    exported <code>tesseract::tesseract</code> target via
+    <code>tesseract-config.cmake</code>.</p>
+  </section>
+
+  <section>
+    <h2 id="quality">Portability, build &amp; testing</h2>
+    <ul>
+      <li><strong>Platforms.</strong> Linux, Windows (MSVC, MinGW, MSYS2),
+      macOS, BSD — the same binary name everywhere (<code>tesseract-crypt</code>,
+      plus the <code>tscrypt</code> alias).</li>
+      <li><strong>Build.</strong> Plain CMake ≥ 3.16 against libsodium
+      (<code>libsodium-dev</code>, or vcpkg). Options:
+      <code>TESS_BUILD_CLI</code>, <code>TESS_BUILD_TESTS</code>,
+      <code>TESS_SANITIZE</code> (ASan+UBSan), <code>TESS_WARNINGS_AS_ERRORS</code>,
+      <code>TESS_FUZZ</code> (libFuzzer harnesses).</li>
+      <li><strong>Test suite.</strong> Eight ctest targets covering roundtrip,
+      tamper, armor, key formats, file I/O, detached signatures, published
+      known-answer vectors and multi-recipient — the same suite is built and
+      run on every platform in CI, plus an ASan/UBSan job and three fuzzers.</li>
+      <li><strong>Distribution.</strong> A GPG-signed APT repository for
+      Debian/Ubuntu amd64, plus GitHub Release artifacts.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+      </nav>
+      <span class="foot-meta mono">v1.0.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

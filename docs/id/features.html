@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fitur — Tesseract Crypt</title>
+<meta name="description" content="Penjelasan setiap fitur Tesseract: manajemen kunci, enkripsi hybrid dan passphrase, multi-penerima, streaming, tanda tangan, inspeksi, serta library C/C++.">
+<link rel="stylesheet" href="../style.css">
+<link rel="alternate" hreflang="id" href="features.html">
+<link rel="alternate" hreflang="en" href="../features.html">
+<link rel="alternate" hreflang="x-default" href="../features.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html">Beranda</a>
+      <a href="cli.html">Referensi CLI</a>
+      <a href="format.html">Spesifikasi Format</a>
+      <a href="features.html" class="active">Fitur</a>
+      <a href="performance.html">Kinerja</a>
+      <a href="tentang.html">Tentang</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="../features.html" lang="en" hreflang="en">EN</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Referensi <em>fitur</em></h1>
+    <p class="lead">
+      Semua yang bisa dilakukan library dan CLI — enkripsi, tanda tangan,
+      streaming, manajemen kunci, dan jaminan di balik masing-masing. Tiap
+      penjelasan di bawah merujuk ke perintah atau API yang benar-benar ada.
+    </p>
+    <p class="cta">
+      <a class="btn primary" href="#commands">Peta perintah</a>
+      <a class="btn" href="cli.html">Referensi CLI</a>
+      <a class="btn" href="performance.html">Kinerja</a>
+    </p>
+  </section>
+
+  <div class="toc">
+    <a href="#commands">Peta perintah</a>
+    <a href="#keys">Manajemen kunci</a>
+    <a href="#publickey">Enkripsi hybrid public-key</a>
+    <a href="#multi">Pesan multi-penerima (v2)</a>
+    <a href="#passphrase">Mode passphrase</a>
+    <a href="#signing">Sign-then-encrypt</a>
+    <a href="#detached">Tanda tangan detached</a>
+    <a href="#streaming">Streaming, chunking &amp; armor</a>
+    <a href="#decrypt">Jaminan dekripsi</a>
+    <a href="#inspect">Inspeksi</a>
+    <a href="#library">API library (C &amp; C++)</a>
+    <a href="#quality">Portabilitas, build &amp; pengujian</a>
+  </div>
+
+  <section>
+    <h2 id="commands">Peta perintah</h2>
+    <p>Satu baris per perintah. Tabel opsi lengkap ada di
+    <a href="cli.html">referensi CLI</a>; kode keluar ada
+    <a href="cli.html#exit">di sana</a>.</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Perintah</th><th>Kegunaan</th></tr>
+      <tr><td class="mono">keygen</td><td>Membuat <code>NAME.key</code> (pribadi) + <code>NAME.pub</code> (publik); kunci pribadi dapat dikunci dengan passphrase (Argon2id).</td></tr>
+      <tr><td class="mono">pubkey</td><td>Mengekspor bagian publik dari file kunci pribadi (menanyakan passphrase bila terkunci).</td></tr>
+      <tr><td class="mono">encrypt</td><td>Mengenkripsi file atau string untuk satu/beberapa penerima, atau dengan passphrase.</td></tr>
+      <tr><td class="mono">decrypt</td><td>Mendekripsi pesan; opsional mewajibkan pengirim tertentu.</td></tr>
+      <tr><td class="mono">sign</td><td>Membuat tanda tangan detached Ed25519ph untuk sebuah file.</td></tr>
+      <tr><td class="mono">verify</td><td>Memverifikasi tanda tangan detached terhadap kunci publik.</td></tr>
+      <tr><td class="mono">inspect</td><td>Menampilkan header pesan (mode, jumlah penerima, chunk, penandatangan) tanpa mendekripsi.</td></tr>
+      <tr><td class="mono">info</td><td>Menampilkan tipe kunci dan fingerprint-nya.</td></tr>
+      <tr><td class="mono">version · help</td><td>Juga tersedia sebagai <code>--version</code>/<code>-V</code> dan <code>--help</code>/<code>-h</code>.</td></tr>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 id="keys">Manajemen kunci</h2>
+    <p>Setiap identitas adalah kunci X25519 (enkripsi) <em>dan</em> Ed25519
+    (tanda tangan) dalam satu file. Ada tiga format file — lihat
+    <a href="format.html#keyfiles">spesifikasi format</a>:</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>File</th><th>Isi</th><th>Kapan</th></tr>
+      <tr><td><code>NAME.key</code> (TSK1)</td><td>Kedua kunci rahasia, terang</td><td>Keygen default</td></tr>
+      <tr><td><code>NAME.key</code> (TSK2)</td><td>Kedua kunci rahasia terenkripsi passphrase; bagian publik tetap terbaca</td><td>Dibuat dengan <code>--passphrase</code></td></tr>
+      <tr><td><code>NAME.pub</code> (TSKp)</td><td>Hanya bagian publik</td><td>Aman dibagikan</td></tr>
+    </table>
+    </div>
+    <p><code>keygen --passphrase</code> melindungi kunci pribadi dengan
+    <strong>Argon2id</strong> (biaya MODERATE libsodium sebagai default, dapat
+    diubah lewat <code>--kdf-ops N</code> dan <code>--kdf-mem MB</code>).
+    Bagian publik sengaja dibiarkan terbuka agar fingerprint dan ekspor
+    <code>pubkey</code> tetap bekerja tanpa passphrase.</p>
+    <p>Di memori, material rahasia di-zeroize dengan
+    <code>sodium_memzero</code> saat dibebaskan, dan <code>sodium_mlock</code>
+    menyematkan skalar rahasia agar tidak tertukar ke disk.</p>
+    <pre class="code"><span class="c"># buat pasangan kunci dengan kunci pribadi terkunci</span>
+tesseract-crypt keygen -o alice --passphrase
+
+<span class="c"># ekspor kunci publik (menanyakan passphrase)</span>
+tesseract-crypt pubkey -k alice.key -o alice.pub
+
+<span class="c"># siapa saya?</span>
+tesseract-crypt info -k alice.key</pre>
+  </section>
+
+  <section>
+    <h2 id="publickey">Enkripsi hybrid public-key</h2>
+    <p>Mode default. Setiap pesan memakai kunci <em>ephemeral</em> X25519 baru,
+    sehingga satu kunci penerima dapat mendekripsi ribuan pesan tanpa kunci
+    rahasianya pernah terekspos:</p>
+    <pre class="code">dh_eph  = X25519(eph_sk, recipient_pk)          <span class="c"># forward secrecy</span>
+dh_stat = X25519(sender_sk, recipient_pk)       <span class="c"># pengikatan identitas</span>
+master  = BLAKE2b-256(key = dh_eph,
+                      in  = dh_stat || salt || "tesseract-kdf-v1")</pre>
+    <p>Suku kedua DH <em>mengikat identitas</em>: pesan hanya bisa dibuka oleh
+    penerima yang dituju, dan penyerang yang mengganti ciphertext tidak dapat
+    membuatnya terdekripsi di kunci orang lain. Berikan
+    <code>-k sender.key</code> untuk memakai suku pengirim tersebut sekaligus
+    menandatangani (lihat <a href="#signing">di bawah</a>); tanpa itu pesan
+    anonim.</p>
+  </section>
+
+  <section>
+    <h2 id="multi">Pesan multi-penerima (format v2)</h2>
+    <p>Ulangi <code>-r</code> untuk mengenkripsi satu pesan bagi satu tim.
+    Sebuah <em>data key</em> acak 32 byte mengenkripsi payload; data key itu
+    lalu dibungkus sekali per penerima memakai rahasia DH masing-masing:</p>
+    <pre class="code">tesseract-crypt encrypt -r alice.pub -r bob.pub -r carol.pub \
+                        -k alice.key -i rahasia.txt -o tim.enc</pre>
+    <p>Biaya tiap penerima tambahan hanya satu operasi X25519 + satu blok kunci
+    80 byte — dapat diabaikan dibanding payload nyata. Pendekripsi yang bukan
+    penerima ditolak dengan galat khusus, sehingga "ini bukan untuk Anda" dapat
+    dibedakan dari "ini rusak".</p>
+  </section>
+
+  <section>
+    <h2 id="passphrase">Mode passphrase</h2>
+    <p>Bila tidak ada kunci publik tujuan, gunakan passphrase:
+    <code>--passphrase</code> menurunkan master key dengan
+    <strong>Argon2id</strong> (memory-hard) dari salt di header.</p>
+    <pre class="code"><span class="c"># enkripsi file / string hanya dengan passphrase</span>
+tesseract-crypt encrypt --passphrase -i catatan.txt -o catatan.enc
+tesseract-crypt encrypt --passphrase --text "satu kalimat"
+
+<span class="c"># dekripsi</span>
+tesseract-crypt decrypt --passphrase -i catatan.enc -o catatan.txt</pre>
+    <div class="warn">
+      <strong>Biaya.</strong> Argon2id sengaja mahal dan dijalankan di kedua
+      sisi. Pada mesin rujukan biayanya ~1,6&nbsp;d sebelum menyentuh payload,
+      jadi mode passphrase untuk data sesekali, bukan pipeline massal. Lihat
+      <a href="performance.html">kinerja</a>.
+    </div>
+    <p>Parameter yang tertulis di header dibatasi keras saat membaca input tak
+    tepercaya (≤ 16 ops, 4&nbsp;GiB) agar file berbahaya tidak menghabiskan
+    memori.</p>
+  </section>
+
+  <section>
+    <h2 id="signing">Sign-then-encrypt</h2>
+    <p>Memberikan <code>-k sender.key</code> pada <code>encrypt</code> membuat
+    tool menandatangani plaintext dengan <strong>Ed25519ph</strong> (varian
+    streaming) dan menyimpan tanda tangan 64 byte di header. Karena seluruh
+    header adalah AAD tiap chunk, tanda tangan diverifikasi sebagai bagian dari
+    dekripsi — sebelum satu byte plaintext pun ditulis ke disk.</p>
+    <p><code>--no-sign</code> melewatinya, dan enkripsi anonim cukup
+    <code>encrypt</code> tanpa <code>-k</code>.</p>
+  </section>
+
+  <section>
+    <h2 id="detached">Tanda tangan detached</h2>
+    <p>Terpisah dari enkripsi, untuk artefak rilis dan patch:</p>
+    <pre class="code">tesseract-crypt sign   -k alice.key -i rilis.tar.gz -o rilis.tar.gz.sig
+tesseract-crypt verify -k alice.pub -i rilis.tar.gz -s rilis.tar.gz.sig</pre>
+    <p>Memakai konstruksi Ed25519ph yang sama dengan sign-then-encrypt,
+    sehingga file besar dialirkan dan tidak pernah di-buffer utuh.</p>
+  </section>
+
+  <section>
+    <h2 id="streaming">Streaming, chunking &amp; armor</h2>
+    <h3>AEAD per chunk</h3>
+    <p>Payload dienkripsi dalam chunk yang diautentikasi independen (default
+    64&nbsp;KiB, diubah lewat <code>--chunk-size</code> dari 4&nbsp;KiB hingga
+    16&nbsp;MiB). Tiap chunk mendapat subkey sendiri lewat
+    <code>crypto_kdf</code>, nonce sendiri (base nonce di-XOR dengan indeks
+    chunk), dan AAD <code>header&nbsp;||&nbsp;indeks&nbsp;||&nbsp;final</code>.
+    Inilah yang membuat serangan reorder, splice, dan truncation gagal secara
+    kriptografis, bukan sekadar korup diam-diam.</p>
+    <h3>Kapan streaming?</h3>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Operasi</th><th>Perilaku memori</th></tr>
+      <tr><td><code>encrypt</code>/<code>decrypt</code> file&nbsp;→&nbsp;file</td><td>Streaming — memori konstan apa pun ukuran file (<code>tess_seal_file</code> / <code>tess_open_file</code>)</td></tr>
+      <tr><td>stdin / stdout / <code>--text</code></td><td>Buffered — seluruh input ditahan di memori</td></tr>
+      <tr><td><code>sign</code> / <code>verify</code></td><td>Streaming (Ed25519ph)</td></tr>
+    </table>
+    </div>
+    <h3>Armor</h3>
+    <p>Output yang berakhir di TTY otomatis dibungkus base64 bergaya PEM;
+    <code>--armor</code> memaksanya, dan <code>decrypt</code>/<code>inspect</code>
+    mendeteksi input ber-armor secara otomatis:</p>
+    <pre class="code">-----BEGIN TESSERACT MESSAGE-----
+...
+-----END TESSERACT MESSAGE-----</pre>
+  </section>
+
+  <section>
+    <h2 id="decrypt">Jaminan dekripsi</h2>
+    <ul>
+      <li><strong>Verifikasi sebelum tulis.</strong> Ciphertext ditulis ke file
+      <code>.part</code> yang baru di-rename ke nama akhir setelah AEAD (dan,
+      bila ada, tanda tangan) sukses. Data tak-terautentikasi tidak pernah
+      mencapai path tujuan.</li>
+      <li><strong>Input ber-armor terdeteksi otomatis</strong>, jadi menempel
+      balik blok base64 langsung berfungsi.</li>
+      <li><strong>Penyematan pengirim</strong> dengan
+      <code>--require-signer signer.pub</code>: bila pesan ditandatangani orang
+      lain (atau tidak ditandatangani), dekripsi gagal dengan kode keluar
+      <code>3</code> dan tidak ada file output yang ditulis.</li>
+      <li><strong>Cek penerima.</strong> Pesan v2 yang tidak ditujukan ke kunci
+      Anda ditolak secara eksplisit.</li>
+      <li><strong>Deteksi truncation/reorder</strong> muncul dari desain AAD
+      chunk — memotong aliran terdeteksi.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 id="inspect">Inspeksi</h2>
+    <p>Baca metadata tanpa kunci apa pun dan tanpa mendekripsi:</p>
+    <pre class="code">$ tesseract-crypt inspect -i tim.enc
+format version : 2
+mode           : public-key
+recipients     : 3
+signed         : yes</pre>
+  </section>
+
+  <section>
+    <h2 id="library">API library (C &amp; C++)</h2>
+    <p><code>libtesseract_crypt</code> adalah library C11 kecil; CLI adalah
+    pembungkus C++17 tipis di atasnya. Permukaan publik
+    (<code>&lt;tesseract/tesseract.h&gt;</code>):</p>
+    <div class="table-scroll">
+    <table>
+      <tr><th>Area</th><th>Fungsi</th></tr>
+      <tr><td>Kunci</td><td class="mono">tess_keygen · tess_keygen_locked · tess_key_unlock · tess_key_lock · tess_key_save · tess_key_load · tess_key_serialize · tess_key_parse · tess_key_get_public · tess_key_fingerprint · tess_key_free</td></tr>
+      <tr><td>Pesan</td><td class="mono">tess_seal · tess_open · tess_seal_file · tess_open_file · tess_inspect</td></tr>
+      <tr><td>Tanda tangan</td><td class="mono">tess_sign · tess_verify · tess_sign_file · tess_verify_file</td></tr>
+      <tr><td>Armor</td><td class="mono">tess_armor · tess_dearmor · tess_is_armored</td></tr>
+      <tr><td>Utilitas</td><td class="mono">tess_version · tess_strerror · tess_free</td></tr>
+    </table>
+    </div>
+    <p>Pembungkus C++17 header-only tersedia di
+    <code>&lt;tesseract/tesseract.hpp&gt;</code> (<code>tess::key</code>,
+    <code>tess::seal</code>, <code>tess::open</code>). CMake menyediakan target
+    ter-ekspor <code>tesseract::tesseract</code> lewat
+    <code>tesseract-config.cmake</code>.</p>
+  </section>
+
+  <section>
+    <h2 id="quality">Portabilitas, build &amp; pengujian</h2>
+    <ul>
+      <li><strong>Platform.</strong> Linux, Windows (MSVC, MinGW, MSYS2),
+      macOS, BSD — nama biner sama di mana-mana (<code>tesseract-crypt</code>,
+      plus alias <code>tscrypt</code>).</li>
+      <li><strong>Build.</strong> CMake ≥ 3.16 melawan libsodium
+      (<code>libsodium-dev</code>, atau vcpkg). Opsi:
+      <code>TESS_BUILD_CLI</code>, <code>TESS_BUILD_TESTS</code>,
+      <code>TESS_SANITIZE</code> (ASan+UBSan), <code>TESS_WARNINGS_AS_ERRORS</code>,
+      <code>TESS_FUZZ</code> (harness libFuzzer).</li>
+      <li><strong>Suite uji.</strong> Delapan target ctest mencakup roundtrip,
+      tamper, armor, format kunci, I/O file, tanda tangan detached, vektor
+      known-answer terbit, dan multi-penerima — suite yang sama dibangun dan
+      dijalankan di tiap platform di CI, plus job ASan/UBSan dan tiga fuzzer.</li>
+      <li><strong>Distribusi.</strong> Repositori APT ber-tanda tangan GPG untuk
+      Debian/Ubuntu amd64, serta artefak GitHub Release.</li>
+    </ul>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><span class="logo">◳</span> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Kontribusi</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
+      </nav>
+      <span class="foot-meta mono">v1.0.0 · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>
