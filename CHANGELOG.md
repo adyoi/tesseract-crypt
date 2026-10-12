@@ -4,6 +4,25 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.1] — 2026-10-12
+
+### Ditambahkan
+
+- **Rilis multi-arsitektur**: setiap rilis kini menyertakan Linux (x86_64,
+  i686, aarch64), macOS (universal2 — x86_64 + arm64), dan Windows (x64, x86,
+  arm64): `tar.gz`/`zip`/`.deb` per arsitektur.
+- **Installer Windows x86**: `tesseract-crypt-<versi>-windows-x86-setup.exe`
+  (selain x64). Kedua installer memakai `AppId` berbeda sehingga dapat terpasang
+  berdampingan.
+
+### Diperbaiki
+
+- **Installer Windows**: opsi "tambahkan ke `PATH`" kini benar-benar
+  menambahkan folder instalasi ke `PATH` pengguna saat pemasangan, dan
+  menghapusnya saat uninstall (mencegah entri `PATH` yatim).
+- **Mojibake pada `--help`**: karakter em-dash diganti ASCII agar tampil benar
+  pada konsol non-UTF-8.
+
 ## [1.0.0] — 2026-10-12
 
 ### Ditambahkan

@@ -48,6 +48,20 @@ sudo apt install tesseract-crypt
 > Verify the key: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
 > → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
 
+## Download
+
+Ready-to-use packages are available on
+[GitHub Releases](https://github.com/adyoi/tesseract-crypt/releases):
+
+| Platform | Architecture | File |
+|----------|--------------|------|
+| Windows | x64, x86, arm64 | `tesseract-crypt-<version>-Windows-<arch>.zip` |
+| Windows (installer) | x64, x86 | `tesseract-crypt-<version>-windows-<arch>-setup.exe` |
+| macOS | universal2 (Intel + Apple silicon) | `tesseract-crypt-<version>-macOS-universal2.tar.gz` |
+| Linux | x86_64, i686, aarch64 | `tesseract-crypt-<version>-Linux-<arch>.tar.gz`, `tesseract-crypt_<version>_<deb-arch>.deb` |
+
+> Every release ships a `SHA256SUMS` file for integrity verification.
+
 ## Build
 
 ```bash

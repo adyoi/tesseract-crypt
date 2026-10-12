@@ -49,6 +49,20 @@ sudo apt install tesseract-crypt
 > Verifikasi kunci: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
 > → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
 
+## Unduh
+
+Paket siap pakai tersedia di
+[GitHub Releases](https://github.com/adyoi/tesseract-crypt/releases):
+
+| Platform | Arsitektur | Berkas |
+|----------|-----------|--------|
+| Windows | x64, x86, arm64 | `tesseract-crypt-<versi>-Windows-<arch>.zip` |
+| Windows (installer) | x64, x86 | `tesseract-crypt-<versi>-windows-<arch>-setup.exe` |
+| macOS | universal2 (Intel + Apple Silicon) | `tesseract-crypt-<versi>-macOS-universal2.tar.gz` |
+| Linux | x86_64, i686, aarch64 | `tesseract-crypt-<versi>-Linux-<arch>.tar.gz`, `tesseract-crypt_<versi>_<deb-arch>.deb` |
+
+> Semua rilis menyertakan berkas `SHA256SUMS` untuk verifikasi integritas.
+
 ## Build
 
 ```bash

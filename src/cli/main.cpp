@@ -252,7 +252,7 @@ struct parser {
 
 int cmd_help() {
     std::cout <<
-        "tesseract-crypt " << tess_version() << " — string & file encryption with public/private keys\n"
+        "tesseract-crypt " << tess_version() << " - string & file encryption with public/private keys\n"
         "\n"
         "Usage:\n"
         "  tesseract-crypt keygen   -o NAME [--passphrase] [--kdf-ops N] [--kdf-mem MB]\n"

@@ -18,8 +18,8 @@ extern "C" {
 
 #define TESS_VERSION_MAJOR 1
 #define TESS_VERSION_MINOR 0
-#define TESS_VERSION_PATCH 0
-#define TESS_VERSION_STRING "1.0.0"
+#define TESS_VERSION_PATCH 1
+#define TESS_VERSION_STRING "1.0.1"
 
 /** Fixed sizes of the on-wire format. */
 #define TESS_HEADER_BYTES 264u   /* binary message header (magic "TSCR")   */

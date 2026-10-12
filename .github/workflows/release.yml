@@ -9,111 +9,193 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+  linux:
+    name: linux · ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: "linux  · gcc",   os: ubuntu-latest,  cc: gcc,   cxx: g++,     artifact: linux-x86_64 }
-          - { name: "macos  · apple", os: macos-latest,   cc: clang, cxx: clang++, artifact: macos }
-          - { name: "windows· msvc",  os: windows-latest, cc: cl,    cxx: cl,      artifact: windows-x64 }
-    env:
-      CC: ${{ matrix.cc }}
-      CXX: ${{ matrix.cxx }}
+          - { arch: x86_64,  runner: ubuntu-latest,    flags: "",     extra: "", multiarch: "",     apt: "libsodium-dev" }
+          - { arch: i686,    runner: ubuntu-latest,    flags: "-m32", multiarch: "i386", extra: "-DCMAKE_LIBRARY_ARCHITECTURE=i386-linux-gnu", apt: "gcc-multilib g++-multilib libsodium-dev:i386" }
+          - { arch: aarch64, runner: ubuntu-24.04-arm, flags: "",     extra: "", multiarch: "",     apt: "libsodium-dev" }
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libsodium (Linux)
-        if: runner.os == 'Linux'
+      - name: Install libsodium
         run: |
+          if [ -n "${{ matrix.multiarch }}" ]; then
+            sudo dpkg --add-architecture "${{ matrix.multiarch }}"
+          fi
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev
-
-      - name: Install libsodium (macOS)
-        if: runner.os == 'macOS'
-        run: brew install libsodium
-
-      - name: Install libsodium (Windows · vcpkg)
-        if: runner.os == 'Windows'
-        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
+          sudo apt-get install -y ${{ matrix.apt }}
 
       - name: Configure
-        shell: bash
+        env:
+          TESS_ARCH: ${{ matrix.arch }}
+          TESS_FLAGS: ${{ matrix.flags }}
+          TESS_EXTRA: ${{ matrix.extra }}
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cmake -S . -B build -DTESS_WARNINGS_AS_ERRORS=ON \
-              -DCMAKE_TOOLCHAIN_FILE="$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTESS_WARNINGS_AS_ERRORS=ON \
-              -DCMAKE_PREFIX_PATH="$(brew --prefix)"
-          else
-            cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTESS_WARNINGS_AS_ERRORS=ON
-          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DTESS_WARNINGS_AS_ERRORS=ON \
+            -DTESS_PACKAGE_ARCH="$TESS_ARCH" \
+            -DCMAKE_C_FLAGS="$TESS_FLAGS" \
+            -DCMAKE_CXX_FLAGS="$TESS_FLAGS" \
+            -DCMAKE_EXE_LINKER_FLAGS="$TESS_FLAGS" \
+            ${TESS_EXTRA}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Smoke test CLI
+        run: |
+          ./build/tesseract-crypt version
+          ./build/tscrypt version
+
+      - name: Package (CPack)
+        run: cmake --build build --target package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: |
+            build/*.tar.gz
+            build/*.deb
+          if-no-files-found: error
+
+  macos:
+    name: macos · universal2
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build universal libsodium (x86_64 + arm64)
+        run: |
+          curl -fsSL -o libsodium.tar.gz \
+            https://github.com/jedisct1/libsodium/releases/download/1.0.20-RELEASE/libsodium-1.0.20.tar.gz
+          tar xf libsodium.tar.gz
+          cd libsodium-1.0.20
+          ./configure --disable-shared --prefix="$PWD/../sodium-uni" \
+            CC=clang \
+            CFLAGS="-arch arm64 -arch x86_64 -O2" \
+            LDFLAGS="-arch arm64 -arch x86_64"
+          make -j"$(sysctl -n hw.ncpu)"
+          make install
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DTESS_WARNINGS_AS_ERRORS=ON \
+            -DTESS_PACKAGE_ARCH=universal2 \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_DISABLE_FIND_PACKAGE_unofficial-sodium=ON \
+            -DSODIUM_LIBRARY="$PWD/sodium-uni/lib/libsodium.a" \
+            -DSODIUM_INCLUDE_DIR="$PWD/sodium-uni/include"
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Smoke test CLI
+        run: |
+          ./build/tesseract-crypt version
+          ./build/tscrypt version
+
+      - name: Package (CPack)
+        run: cmake --build build --target package
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal2
+          path: build/*.tar.gz
+          if-no-files-found: error
+
+  windows:
+    name: windows · ${{ matrix.arch }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x64,   vcpkg: x64-windows,   cmake_arch: x64,   tests: true,  installer: true }
+          - { arch: x86,   vcpkg: x86-windows,   cmake_arch: Win32, tests: true,  installer: true }
+          - { arch: arm64, vcpkg: arm64-windows, cmake_arch: ARM64, tests: false, installer: false }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install libsodium (vcpkg)
+        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:${{ matrix.vcpkg }}'
+
+      - name: Configure
+        run: >
+          cmake -S . -B build -A ${{ matrix.cmake_arch }}
+          -DTESS_WARNINGS_AS_ERRORS=ON
+          -DTESS_PACKAGE_ARCH=${{ matrix.arch }}
+          -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg }}
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
       - name: Test
+        if: matrix.tests
         run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Package (CPack)
         run: cmake --build build --config Release --target package
 
       - name: Build Windows installer (Inno Setup)
-        if: runner.os == 'Windows'
+        if: matrix.installer
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
           $ver = "${{ github.ref_name }}"
           if ($ver.StartsWith('v')) { $ver = $ver.Substring(1) }
-          if (-not $ver) { $ver = "1.0.0" }
+          if (-not $ver) { $ver = "0.0.0" }
           New-Item -ItemType Directory -Force stage | Out-Null
           Copy-Item build/Release/tesseract-crypt.exe stage/
           Copy-Item build/Release/tscrypt.exe stage/
           Copy-Item LICENSE stage/
-          # libsodium (vcpkg dynamic triplet) needs its runtime DLL bundled.
-          $dlls = Get-ChildItem "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" `
-                    -Filter '*sodium*.dll' -ErrorAction SilentlyContinue
-          if ($dlls) { $dlls | Copy-Item -Destination stage/ }
-          & "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe" `
-              "/DAppVersion=$ver" packaging/windows/tesseract-crypt.iss
-          Get-ChildItem dist | ForEach-Object { Write-Host "installer: $($_.Name)" }
+          $bin = "$env:VCPKG_INSTALLATION_ROOT/installed/${{ matrix.vcpkg }}/bin"
+          Get-ChildItem $bin -Filter '*sodium*.dll' -ErrorAction SilentlyContinue |
+            Copy-Item -Destination stage/
+          $isccArgs = @("/DAppVersion=$ver")
+          if ("${{ matrix.arch }}" -eq "x86") { $isccArgs += "/DArchX86" }
+          & "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe" @isccArgs packaging/windows/tesseract-crypt.iss
 
-      - name: Collect package
+      - name: Collect artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force dist | Out-Null
-          $pkgs = Get-ChildItem build -File |
-            Where-Object { $_.Name -match '^tesseract-crypt[-_].*\.(tar\.gz|zip|deb)$' }
-          if (-not $pkgs) { Write-Error "no CPack artifact produced"; exit 1 }
-          $pkgs | ForEach-Object { Copy-Item $_.FullName dist/ }
-          Get-ChildItem dist | ForEach-Object { Write-Host "package: $($_.Name)" }
+          Get-ChildItem build -File -Filter '*.zip' -ErrorAction SilentlyContinue |
+            Copy-Item -Destination dist/
+          Get-ChildItem dist | ForEach-Object { Write-Host "artifact: $($_.Name)" }
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: tesseract-crypt-${{ matrix.artifact }}
-          path: dist/
+          name: windows-${{ matrix.arch }}
+          path: dist/*
           if-no-files-found: error
 
   release:
-    name: GitHub Release
-    needs: build
+    name: publish
+    needs: [linux, macos, windows]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
-      - name: Generate checksums
-        working-directory: dist
+      - name: Checksums
         run: |
+          cd dist
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
 
@@ -122,8 +204,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* \
-              --repo "$GITHUB_REPOSITORY" --clobber
+            gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$GITHUB_REF_NAME" dist/* \
               --repo "$GITHUB_REPOSITORY" \

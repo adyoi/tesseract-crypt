@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(tesseract-crypt
-    VERSION 1.0.0
+    VERSION 1.0.1
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
     LANGUAGES C CXX)
 
@@ -231,6 +231,29 @@ set(CPACK_PACKAGE_CONTACT "Tesseract Crypt maintainers")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY
     "String & file encryption with public/private keys (X25519 hybrid + Ed25519 sign)")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+
+# Artifact names carry the OS and CPU so multi-arch releases stay distinct,
+# e.g. tesseract-crypt-1.0.1-Linux-aarch64.tar.gz, ...-Windows-x64.zip.
+# CI overrides TESS_PACKAGE_ARCH (x64, x86, arm64, x86_64, i686, aarch64,
+# universal2, ...); the fallback below is only a best guess for local runs.
+if(WIN32)
+    set(TESS_OS_NAME "Windows")
+elseif(APPLE)
+    set(TESS_OS_NAME "macOS")
+else()
+    set(TESS_OS_NAME "Linux")
+endif()
+
+if(NOT TESS_PACKAGE_ARCH)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(TESS_PACKAGE_ARCH "i686")
+    else()
+        set(TESS_PACKAGE_ARCH "x86_64")
+    endif()
+endif()
+
+set(CPACK_PACKAGE_FILE_NAME
+    "tesseract-crypt-${PROJECT_VERSION}-${TESS_OS_NAME}-${TESS_PACKAGE_ARCH}")
 
 if(WIN32)
     set(CPACK_GENERATOR "ZIP")
