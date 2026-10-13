@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 380" width="1180" height="380" role="img" aria-label="Tesseract Crypt message flow: keygen, sign, hybrid KDF, encrypt, decrypt">
+  <defs>
+    <linearGradient id="tc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ee7ff"/>
+      <stop offset=".5" stop-color="#b18cff"/>
+      <stop offset="1" stop-color="#ff7ad9"/>
+    </linearGradient>
+    <linearGradient id="fgbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1120"/>
+      <stop offset="1" stop-color="#05070f"/>
+    </linearGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="7.5" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6ee7ff"/>
+    </marker>
+    <style>
+      .t { font-family: "Space Grotesk","Segoe UI",Roboto,"Noto Sans",Arial,sans-serif; }
+    </style>
+  </defs>
+
+  <rect x="1" y="1" width="1178" height="378" rx="20"
+        fill="url(#fgbg)" stroke="#1c2743" stroke-width="2"/>
+
+  <text class="t" x="20" y="44" fill="#e8eeff" font-size="22" font-weight="700">Alur pesan · Message flow</text>
+  <text class="t" x="20" y="70" fill="#9aa8cf" font-size="13">Sign-then-encrypt · X25519 hybrid KDF · XChaCha20-Poly1305 per chunk (64 KiB)</text>
+
+  <g stroke="#26324f" stroke-width="1.5">
+    <path d="M10 104 H932 M10 104 v-6 M932 104 v-6"/>
+    <path d="M962 104 H1170 M962 104 v-6 M1170 104 v-6"/>
+  </g>
+  <text class="t" x="471" y="96" fill="#6ee7ff" font-size="12" letter-spacing="1" text-anchor="middle">PENGIRIM · SENDER</text>
+  <text class="t" x="1066" y="96" fill="#f2a3dc" font-size="12" letter-spacing="1" text-anchor="middle">PENERIMA · RECIPIENT</text>
+
+  <g>
+    <rect x="10" y="120" width="208" height="176" rx="16" fill="#0a1020" stroke="#22304f"/>
+    <rect x="10" y="120" width="208" height="5" rx="2.5" fill="url(#tc)"/>
+    <circle cx="44" cy="168" r="20" fill="rgba(110,231,255,.10)" stroke="#2b6d86"/>
+    <g fill="none" stroke="#6ee7ff" stroke-width="2.4" stroke-linecap="round">
+      <circle cx="39" cy="163" r="5"/>
+      <path d="M43 167 L54 178 M49 173 L52 170 M52 176 L55 173"/>
+    </g>
+    <text class="t" x="74" y="174" fill="#e8eeff" font-size="16" font-weight="700">Keygen</text>
+    <path d="M28 198 H200" stroke="#1e2b4d"/>
+    <text class="t" x="28" y="224" fill="#9aa8cf" font-size="12.5">X25519 (kunci KX)</text>
+    <text class="t" x="28" y="246" fill="#9aa8cf" font-size="12.5">Ed25519 (tanda tangan)</text>
+    <text class="t" x="28" y="268" fill="#9aa8cf" font-size="12.5">→ identitas</text>
+  </g>
+
+  <g>
+    <rect x="248" y="120" width="208" height="176" rx="16" fill="#0a1020" stroke="#22304f"/>
+    <rect x="248" y="120" width="208" height="5" rx="2.5" fill="url(#tc)"/>
+    <circle cx="282" cy="168" r="20" fill="rgba(110,231,255,.10)" stroke="#2b6d86"/>
+    <path d="M272 174 C278 160 284 178 292 166" fill="none" stroke="#6ee7ff" stroke-width="2.4" stroke-linecap="round"/>
+    <text class="t" x="312" y="174" fill="#e8eeff" font-size="16" font-weight="700">Sign</text>
+    <path d="M266 198 H438" stroke="#1e2b4d"/>
+    <text class="t" x="266" y="224" fill="#9aa8cf" font-size="12.5">Ed25519ph streaming</text>
+    <text class="t" x="266" y="246" fill="#9aa8cf" font-size="12.5">header → AAD</text>
+    <text class="t" x="266" y="268" fill="#9aa8cf" font-size="12.5">(anti-tamper)</text>
+  </g>
+
+  <g>
+    <rect x="486" y="120" width="208" height="176" rx="16" fill="#0a1020" stroke="#22304f"/>
+    <rect x="486" y="120" width="208" height="5" rx="2.5" fill="url(#tc)"/>
+    <circle cx="520" cy="168" r="20" fill="rgba(110,231,255,.10)" stroke="#2b6d86"/>
+    <path d="M510 159 L520 168 L510 177 M520 168 H531" fill="none" stroke="#6ee7ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" x="550" y="174" fill="#e8eeff" font-size="16" font-weight="700">KDF hibrida</text>
+    <path d="M504 198 H676" stroke="#1e2b4d"/>
+    <text class="t" x="504" y="224" fill="#9aa8cf" font-size="12.5">ephemeral X25519</text>
+    <text class="t" x="504" y="246" fill="#9aa8cf" font-size="12.5">+ static DH →</text>
+    <text class="t" x="504" y="268" fill="#9aa8cf" font-size="12.5">BLAKE2b</text>
+  </g>
+
+  <g>
+    <rect x="724" y="120" width="208" height="176" rx="16" fill="#0a1020" stroke="#22304f"/>
+    <rect x="724" y="120" width="208" height="5" rx="2.5" fill="url(#tc)"/>
+    <circle cx="758" cy="168" r="20" fill="rgba(110,231,255,.10)" stroke="#2b6d86"/>
+    <g fill="none" stroke="#6ee7ff" stroke-width="2.4" stroke-linecap="round">
+      <rect x="749" y="166" width="18" height="14" rx="3"/>
+      <path d="M753 166 v-4 a5 5 0 0 1 10 0 v4"/>
+    </g>
+    <text class="t" x="788" y="174" fill="#e8eeff" font-size="16" font-weight="700">Encrypt</text>
+    <path d="M742 198 H914" stroke="#1e2b4d"/>
+    <text class="t" x="742" y="224" fill="#9aa8cf" font-size="12.5">XChaCha20-Poly1305</text>
+    <text class="t" x="742" y="246" fill="#9aa8cf" font-size="12.5">per chunk 64 KiB</text>
+    <text class="t" x="742" y="268" fill="#9aa8cf" font-size="12.5">→ armor .tess</text>
+  </g>
+
+  <g>
+    <rect x="962" y="120" width="208" height="176" rx="16" fill="#0a1020" stroke="#3a2a4d"/>
+    <rect x="962" y="120" width="208" height="5" rx="2.5" fill="url(#tc)"/>
+    <circle cx="996" cy="168" r="20" fill="rgba(255,122,217,.10)" stroke="#7d4f77"/>
+    <path d="M987 168 L994 175 L1006 161" fill="none" stroke="#f2a3dc" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="t" x="1026" y="174" fill="#e8eeff" font-size="16" font-weight="700">Decrypt</text>
+    <path d="M980 198 H1152" stroke="#1e2b4d"/>
+    <text class="t" x="980" y="224" fill="#9aa8cf" font-size="12.5">verifikasi → dekripsi</text>
+    <text class="t" x="980" y="246" fill="#9aa8cf" font-size="12.5">tulis atomik</text>
+    <text class="t" x="980" y="268" fill="#9aa8cf" font-size="12.5">(.part → rename)</text>
+  </g>
+
+  <g stroke="#6ee7ff" stroke-width="2.5" opacity=".85">
+    <path d="M220 208 H244" marker-end="url(#ar)"/>
+    <path d="M458 208 H482" marker-end="url(#ar)"/>
+    <path d="M696 208 H720" marker-end="url(#ar)"/>
+    <path d="M934 208 H958" marker-end="url(#ar)"/>
+  </g>
+
+  <text class="t" x="20" y="340" fill="#9aa8cf" font-size="12.5">Tanda tangan &amp; header di-authenticate sebagai AAD; header diverifikasi sebelum satu byte plaintext ditulis.</text>
+  <text class="t" x="20" y="362" fill="#6b7aa3" font-size="12.5" font-style="italic">Signature &amp; header are authenticated as AAD; the header is verified before any plaintext byte is written.</text>
+</svg>

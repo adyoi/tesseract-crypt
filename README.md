@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Tesseract Crypt" width="112" height="112">
+</p>
+
 # Tesseract Crypt
 
 [![CI](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml)
@@ -25,6 +29,13 @@ passphrase.
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` untuk stdout & teks |
 | **Multi-penerima (v2)** | Satu pesan untuk banyak penerima: data key acak dibungkus per penerima (format v2) |
 | **Atomic output** | File ditulis ke `.part`, di-rename hanya setelah dekripsi & verifikasi sukses |
+
+## Cara kerja
+
+![Alur pesan Tesseract Crypt: keygen → tanda tangan → KDF hibrida → enkripsi + armor → dekripsi](docs/assets/flow.svg)
+
+Tanda tangan dan header ikut di-authenticate sebagai AAD, dan header
+diverifikasi **sebelum** satu byte plaintext ditulis.
 
 ## Install (APT — Debian/Ubuntu amd64)
 

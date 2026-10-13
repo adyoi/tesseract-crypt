@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.svg" alt="Tesseract Crypt" width="112" height="112">
+</p>
+
 # Tesseract Crypt
 
 [![CI](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml)
@@ -24,6 +28,13 @@ passphrase mode.
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` for stdout & text |
 | **Multi-recipient (v2)** | One message for many recipients: a random data key wrapped per recipient (format v2) |
 | **Atomic output** | File is written to `.part`, renamed only after decryption & verification succeed |
+
+## How it works
+
+![Tesseract Crypt message flow: keygen → sign → hybrid KDF → encrypt + armor → decrypt](docs/assets/flow.svg)
+
+The signature and header are authenticated as AAD, and the header is verified
+**before** any plaintext byte is written.
 
 ## Install (APT — Debian/Ubuntu amd64)
 

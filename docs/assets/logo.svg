@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="Tesseract Crypt">
+  <defs>
+    <linearGradient id="tc" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ee7ff"/>
+      <stop offset=".5" stop-color="#b18cff"/>
+      <stop offset="1" stop-color="#ff7ad9"/>
+    </linearGradient>
+    <linearGradient id="tcbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1326"/>
+      <stop offset="1" stop-color="#05070f"/>
+    </linearGradient>
+    <radialGradient id="kh" cx=".5" cy=".4" r=".7">
+      <stop offset="0" stop-color="#f2fbff"/>
+      <stop offset=".45" stop-color="#6ee7ff"/>
+      <stop offset="1" stop-color="#8f7bff"/>
+    </radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect x="6" y="6" width="244" height="244" rx="56"
+        fill="url(#tcbg)" stroke="url(#tc)" stroke-opacity=".55" stroke-width="2"/>
+
+  <g fill="none" stroke="url(#tc)" stroke-width="7"
+     stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)">
+    <rect x="56" y="56" width="144" height="144" rx="6"/>
+    <rect x="92" y="92" width="72" height="72" rx="4"/>
+    <path d="M56 56 92 92M200 56 164 92M200 200 164 164M56 200 92 164"/>
+  </g>
+
+  <g filter="url(#glow)">
+    <circle cx="128" cy="120" r="16" fill="url(#kh)"/>
+    <path d="M121 130 L135 130 L139 160 L117 160 Z" fill="url(#kh)"/>
+  </g>
+</svg>
