@@ -252,6 +252,26 @@ if(NOT TESS_PACKAGE_ARCH)
     endif()
 endif()
 
+if(NOT TESS_PACKAGE_ARCH)
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        set(TESS_PACKAGE_ARCH "i686")
+    else()
+        set(TESS_PACKAGE_ARCH "x86_64")
+    endif()
+endif()
+
+# Debian architecture name for the .deb metadata and filename.  CPack would
+# otherwise derive it from the host (always amd64 on the x86_64 build hosts,
+# even for an -m32 build), collapsing x86_64 and i686 onto the same file name.
+if(TESS_PACKAGE_ARCH STREQUAL "x86_64" OR TESS_PACKAGE_ARCH STREQUAL "amd64")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+elseif(TESS_PACKAGE_ARCH STREQUAL "i686" OR TESS_PACKAGE_ARCH STREQUAL "i386" OR
+       TESS_PACKAGE_ARCH STREQUAL "x86")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "i386")
+elseif(TESS_PACKAGE_ARCH STREQUAL "aarch64" OR TESS_PACKAGE_ARCH STREQUAL "arm64")
+    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "arm64")
+endif()
+
 set(CPACK_PACKAGE_FILE_NAME
     "tesseract-crypt-${PROJECT_VERSION}-${TESS_OS_NAME}-${TESS_PACKAGE_ARCH}")
 
@@ -263,7 +283,8 @@ else()
     set(CPACK_GENERATOR "TGZ;DEB")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
-    set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
+    set(CPACK_DEBIAN_FILE_NAME
+        "tesseract-crypt_${PROJECT_VERSION}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}.deb")
 endif()
 
 include(CPack)
