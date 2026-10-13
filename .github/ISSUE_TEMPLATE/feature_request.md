@@ -29,7 +29,7 @@ body:
       label: Pertimbangan kriptografi
       description: |
         Perubahan format, key schedule, atau algoritma harus mengikuti
-        RENCANA.md dan mempertahankan: sign-then-encrypt, header-ke-chunk AAD,
+        PLANNING.md dan mempertahankan: sign-then-encrypt, header-ke-chunk AAD,
         forward secrecy, dan kebersihan memori. Jelaskan dampaknya di sini.
   - type: checkboxes
     id: scope

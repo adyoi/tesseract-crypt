@@ -1,4 +1,4 @@
-# RENCANA — Repository `tesseract-crypt`
+# PLANNING — Repository `tesseract-crypt`
 
 **Codename:** Tesseract
 **Bahasa:** C11 (library inti) + C++17 (CLI)
@@ -63,7 +63,7 @@ tesseract-crypt/
 ├── packaging/              # PKGBUILD (Arch), spec (RPM), .deb recipe
 ├── scripts/build-linux.sh
 ├── CMakeLists.txt
-├── README.md · RENCANA.md · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
+├── README.md · PLANNING.md · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
 └── LICENSE (MIT)
 ```
 
@@ -208,7 +208,7 @@ UX: output ke TTY → otomatis armor; stdin/stdout (`-`) didukung; exit code ≠
 
 | Milestone | Isi | Status |
 |-----------|-----|--------|
-| **M0 — Skeleton** | Struktur repo, CMake, RENCANA, README, LICENSE, CI dasar | ✅ |
+| **M0 — Skeleton** | Struktur repo, CMake, PLANNING, README, LICENSE, CI dasar | ✅ |
 | **M1 — Core crypto** | keygen, seal/open buffer & file, sign/verify, armor, tests | ✅ |
 | **M2 — CLI lengkap** | Semua subcommand, man page, UX TTY/armor otomatis | ✅ |
 | **M3 — Docs & Pages** | `docs/` landing + CLI reference + format spec, deploy Pages | ✅ |

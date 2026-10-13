@@ -2,7 +2,7 @@
 
 Terima kasih telah melirik proyek ini! Kontribusi disambut baik: perbaikan
 bug, tes, dokumentasi, dan fitur baru — selama tetap sejalan dengan desain di
-[`RENCANA.md`](RENCANA.md).
+[`PLANNING.md`](PLANNING.md).
 
 ## Lingkup
 
@@ -15,7 +15,7 @@ bug, tes, dokumentasi, dan fitur baru — selama tetap sejalan dengan desain di
   - tidak memakai RNG sendiri; selalu `randombytes_buf`.
 - **CLI** (`src/cli/main.cpp`, C++17) — hanya memanggil API publik. Jangan
   pindahkan logika kripto ke CLI.
-- **Docs** (`docs/`) — harus sinkron dengan `RENCANA.md` dan kode aktual
+- **Docs** (`docs/`) — harus sinkron dengan `PLANNING.md` dan kode aktual
   (offset header, label armor, format berkas kunci).
 
 ## Menyiapkan lingkungan
@@ -50,7 +50,7 @@ ctest --test-dir build -C Release --output-on-failure
    cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DTESS_SANITIZE=ON
    cmake --build build-asan -j && ctest --test-dir build-asan --output-on-failure
    ```
-5. **Dokumentasi**: ubah `RENCANA.md`, `docs/*`, README, dan man page bila
+5. **Dokumentasi**: ubah `PLANNING.md`, `docs/*`, README, dan man page bila
    perilaku atau format berubah.
 
 ## Alur pull request
@@ -66,7 +66,7 @@ ctest --test-dir build -C Release --output-on-failure
 
 - Jangan memperkenalkan primitif kripto sendiri; hanya libsodium.
 - Jangan ubah format biner tanpa bump versi header (`version`) dan update
-  `docs/format.html` + `RENCANA.md`.
+  `docs/format.html` + `PLANNING.md`.
 - Jangan commit kunci, passphrase, atau materal berkas uji (lihat
   `.gitignore`).
 
