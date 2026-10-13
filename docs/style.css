@@ -217,7 +217,13 @@ header.site .wrap {
   color: transparent;
   filter: drop-shadow(0 0 14px rgba(143, 123, 255, 0.35));
 }
-.logo { color: var(--cyan); margin-right: 0.3rem; }
+.logo {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-right: 0.45rem;
+  vertical-align: -0.35rem;
+  border-radius: 0.42rem;
+}
 
 nav { display: flex; gap: 0.4rem; flex-wrap: wrap; }
 nav a {
