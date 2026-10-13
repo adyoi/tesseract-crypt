@@ -721,10 +721,12 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
         outpos += chunk_pt_len;
         pos += clen;
         i++;
-        if ((uint64_t)i > (1ull << 32)) {
+#if SIZE_MAX >= UINT64_MAX
+        if (i > (1ull << 32)) {
             rc = TESS_ERR_FORMAT;
             goto fail;
         }
+#endif
     }
 
     if (i == 0) {

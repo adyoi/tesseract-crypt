@@ -227,8 +227,8 @@ struct parser {
         std::string s = get(flag);
         if (s.empty()) return false;
         char *end = nullptr;
-        unsigned long n = std::strtoul(s.c_str(), &end, 10);
-        if (end == nullptr || *end != '\0' || n == 0 || n > 0xfffffffful) {
+        unsigned long long n = std::strtoull(s.c_str(), &end, 10);
+        if (end == nullptr || *end != '\0' || n == 0 || n > 0xffffffffull) {
             return false;
         }
         out = static_cast<uint32_t>(n);
