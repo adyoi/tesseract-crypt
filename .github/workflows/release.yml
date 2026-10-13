@@ -190,6 +190,7 @@ jobs:
           $zip = Get-Item build/tesseract-crypt-*-Windows-*.zip
           Expand-Archive $zip.FullName -DestinationPath smoke -Force
           if (-not (Get-ChildItem smoke -Recurse -Filter '*sodium*.dll')) {
+            Get-ChildItem smoke -Recurse -File | ForEach-Object { Write-Host "in zip: $($_.FullName)" }
             throw "libsodium runtime DLL is missing from $($zip.Name)"
           }
 

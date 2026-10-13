@@ -189,15 +189,21 @@ install(TARGETS tesseract_crypt
 install(DIRECTORY include/tesseract
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-# Windows links libsodium dynamically (vcpkg); ship the runtime DLL next to the
-# executables so the .zip works on a clean machine.
-if(WIN32 AND TESS_SODIUM_LOCATION MATCHES "\\.dll$")
-    install(FILES "${TESS_SODIUM_LOCATION}" DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
-
 if(TESS_BUILD_CLI)
     install(TARGETS ${TESS_CLI_TARGET}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # Bundle shared runtime deps (e.g. libsodium.dll) next to the executable so
+    # the packaged Windows ZIP runs on a clean machine. The list is empty when
+    # libsodium is linked statically (release Linux/macOS), so nothing is added.
+    if(WIN32)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+            install(FILES $<TARGET_RUNTIME_DLLS:${TESS_CLI_TARGET}>
+                DESTINATION ${CMAKE_INSTALL_BINDIR})
+        elseif(TESS_SODIUM_LOCATION MATCHES "\\.dll$")
+            install(FILES "${TESS_SODIUM_LOCATION}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+        endif()
+    endif()
     if(UNIX)
         # Alias 'tscrypt' -> 'tesseract-crypt' as a symlink (DESTDIR-aware).
         install(CODE "
