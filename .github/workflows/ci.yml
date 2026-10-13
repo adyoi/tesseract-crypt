@@ -21,7 +21,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium
         run: |
@@ -50,7 +50,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium
         run: |
@@ -73,7 +73,7 @@ jobs:
     name: MSVC · Release (vcpkg)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium (vcpkg)
         run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
@@ -99,7 +99,7 @@ jobs:
     name: AppleClang · Release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium
         run: brew install libsodium
@@ -129,7 +129,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium
         run: |

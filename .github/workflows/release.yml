@@ -20,7 +20,7 @@ jobs:
           - { arch: i686,    runner: ubuntu-latest,    cc: "gcc -m32", flags: "-m32", multiarch: "i386", apt: "gcc-multilib g++-multilib" }
           - { arch: aarch64, runner: ubuntu-24.04-arm, cc: "gcc",     flags: "",     multiarch: "",     apt: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install toolchain
         run: |
@@ -98,7 +98,7 @@ jobs:
     name: macos · universal2
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build universal libsodium (x86_64 + arm64)
         run: |
@@ -161,7 +161,7 @@ jobs:
           - { arch: x86,   vcpkg: x86-windows,   cmake_arch: Win32, tests: true,  installer: true }
           - { arch: arm64, vcpkg: arm64-windows, cmake_arch: ARM64, tests: false, installer: false }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium (vcpkg)
         run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:${{ matrix.vcpkg }}'
