@@ -193,15 +193,25 @@ if(TESS_BUILD_CLI)
     install(TARGETS ${TESS_CLI_TARGET}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-    # Bundle shared runtime deps (e.g. libsodium.dll) next to the executable so
-    # the packaged Windows ZIP runs on a clean machine. The list is empty when
-    # libsodium is linked statically (release Linux/macOS), so nothing is added.
+    # Bundle the libsodium runtime DLL next to the executable so the packaged
+    # Windows ZIP runs on a clean machine. vcpkg exposes an UNKNOWN imported
+    # target pointing at the import library (.lib), so the DLL is resolved from
+    # the install prefix's bin/ directory instead.
     if(WIN32)
-        if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
-            install(FILES $<TARGET_RUNTIME_DLLS:${TESS_CLI_TARGET}>
-                DESTINATION ${CMAKE_INSTALL_BINDIR})
+        set(_sodium_dlls "")
+        if(VCPKG_INSTALLED_DIR AND VCPKG_TARGET_TRIPLET)
+            file(GLOB _sodium_dlls
+                "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/*sodium*.dll")
+        endif()
+        if(NOT _sodium_dlls AND TESS_SODIUM_LOCATION MATCHES "\\.(lib|dll\\.a)$")
+            get_filename_component(_sodium_dir "${TESS_SODIUM_LOCATION}" DIRECTORY)
+            get_filename_component(_sodium_prefix "${_sodium_dir}" DIRECTORY)
+            file(GLOB _sodium_dlls "${_sodium_prefix}/bin/*sodium*.dll")
         elseif(TESS_SODIUM_LOCATION MATCHES "\\.dll$")
-            install(FILES "${TESS_SODIUM_LOCATION}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+            set(_sodium_dlls "${TESS_SODIUM_LOCATION}")
+        endif()
+        if(_sodium_dlls)
+            install(FILES ${_sodium_dlls} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
     endif()
     if(UNIX)
