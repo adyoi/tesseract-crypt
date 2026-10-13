@@ -90,7 +90,8 @@ static tess_status argon_params(uint32_t ops_in, uint64_t mem_in,
     *ops = ops_in ? ops_in : (uint32_t)TESS_ARGON_DEF_OPS;
     *mem = mem_in ? mem_in : (uint64_t)TESS_ARGON_DEF_MEM;
     if (*ops < 1 || *ops > TESS_ARGON_MAX_OPS) return TESS_ERR_INVALID_ARG;
-    if (*mem < (64ull * 1024ull) || *mem > TESS_ARGON_MAX_MEM) {
+    if (*mem < (64ull * 1024ull) || *mem > TESS_ARGON_MAX_MEM ||
+        *mem > SIZE_MAX) {
         return TESS_ERR_INVALID_ARG;
     }
     return TESS_OK;
@@ -121,7 +122,7 @@ static tess_status lock_derive(const char *pass, const uint8_t salt[16],
                                uint32_t ops, uint64_t mem,
                                uint8_t key[crypto_kdf_KEYBYTES]) {
     if (crypto_pwhash(key, crypto_kdf_KEYBYTES, pass, strlen(pass), salt,
-                      ops, mem, crypto_pwhash_ALG_ARGON2ID13) != 0) {
+                      ops, (size_t)mem, crypto_pwhash_ALG_ARGON2ID13) != 0) {
         return TESS_ERR_CRYPTO;
     }
     return TESS_OK;

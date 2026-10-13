@@ -134,11 +134,12 @@ tess_status tess_derive_master_pass(const char *passphrase,
         return TESS_ERR_INVALID_ARG;
     }
     if (ops < 1 || ops > TESS_ARGON_MAX_OPS) return TESS_ERR_FORMAT;
-    if (mem < (64ull * 1024ull) || mem > TESS_ARGON_MAX_MEM) {
+    if (mem < (64ull * 1024ull) || mem > TESS_ARGON_MAX_MEM ||
+        mem > SIZE_MAX) {
         return TESS_ERR_FORMAT;
     }
     if (crypto_pwhash(out->key, sizeof out->key, passphrase,
-                      strlen(passphrase), salt, ops, mem,
+                      strlen(passphrase), salt, ops, (size_t)mem,
                       crypto_pwhash_ALG_ARGON2ID13) != 0) {
         return TESS_ERR_PASSPHRASE;
     }
@@ -720,7 +721,7 @@ tess_status tess_open(const uint8_t *ct, size_t ct_len,
         outpos += chunk_pt_len;
         pos += clen;
         i++;
-        if (i > (1ull << 32)) {
+        if ((uint64_t)i > (1ull << 32)) {
             rc = TESS_ERR_FORMAT;
             goto fail;
         }
