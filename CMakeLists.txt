@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(tesseract-crypt
-    VERSION 1.0.1
+    VERSION 1.0.2
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
     LANGUAGES C CXX)
 
@@ -35,6 +35,17 @@ else()
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
     find_package(Sodium REQUIRED)
     set(TESS_SODIUM_TARGET Sodium::sodium)
+endif()
+
+# Detect a static libsodium so packaging can drop the runtime dependency
+# (release tarballs/.deb link libsodium statically and are self-contained).
+get_target_property(TESS_SODIUM_LOCATION ${TESS_SODIUM_TARGET} IMPORTED_LOCATION)
+if(NOT TESS_SODIUM_LOCATION)
+    get_target_property(TESS_SODIUM_LOCATION
+        ${TESS_SODIUM_TARGET} IMPORTED_LOCATION_RELEASE)
+endif()
+if(TESS_SODIUM_LOCATION MATCHES "\\.a$")
+    set(TESS_SODIUM_STATIC TRUE)
 endif()
 
 # ------------------------------------------------------------------ #
@@ -178,6 +189,12 @@ install(TARGETS tesseract_crypt
 install(DIRECTORY include/tesseract
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+# Windows links libsodium dynamically (vcpkg); ship the runtime DLL next to the
+# executables so the .zip works on a clean machine.
+if(WIN32 AND TESS_SODIUM_LOCATION MATCHES "\\.dll$")
+    install(FILES "${TESS_SODIUM_LOCATION}" DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
 if(TESS_BUILD_CLI)
     install(TARGETS ${TESS_CLI_TARGET}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -282,7 +299,12 @@ elseif(APPLE)
 else()
     set(CPACK_GENERATOR "TGZ;DEB")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
-    set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
+    # Static libsodium needs no runtime package; a shared one does.
+    if(TESS_SODIUM_STATIC)
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+    else()
+        set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
+    endif()
     set(CPACK_DEBIAN_FILE_NAME
         "tesseract-crypt_${PROJECT_VERSION}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}.deb")
 endif()

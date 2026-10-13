@@ -4,6 +4,24 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.2] — 2026-10-13
+
+### Diperbaiki
+
+- **Paket Windows `.zip`**: kini menyertakan runtime libsodium (`libsodium*.dll`)
+  di `bin/`, sehingga biner berjalan tanpa instalasi tambahan (sebelumnya
+  `tesseract-crypt.exe` gagal karena DLL tak ada). Installer x64/x86 tidak
+  terpengaruh.
+- **Linux `.tar.gz` & `.deb`**: libsodium kini ditautkan **statis** (1.0.20)
+  sehingga arsip benar-benar mandiri; `.deb` tidak lagi memerlukan paket
+  `libsodium23`. macOS sudah statis.
+
+### Ditambahkan
+
+- **Smoke test paket di CI**: setiap job merilis mengekstrak arsip hasil
+  (`tar.gz`/`.zip`) lalu menjalankan `tesseract-crypt version` (dan `tscrypt`)
+  untuk menjamin paket benar-benar jalan — menutup celah DLL/library yang hilang.
+
 ## [1.0.1] — 2026-10-12
 
 ### Ditambahkan

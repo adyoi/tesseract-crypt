@@ -61,6 +61,8 @@ Ready-to-use packages are available on
 | Linux | x86_64, i686, aarch64 | `tesseract-crypt-<version>-Linux-<arch>.tar.gz`, `tesseract-crypt_<version>_<deb-arch>.deb` |
 
 > Every release ships a `SHA256SUMS` file for integrity verification.
+> The Windows `.zip` bundles the `libsodium` runtime; Linux `.tar.gz`/`.deb`
+> link libsodium statically, so both run with no extra dependencies.
 
 ## Build
 

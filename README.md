@@ -62,6 +62,8 @@ Paket siap pakai tersedia di
 | Linux | x86_64, i686, aarch64 | `tesseract-crypt-<versi>-Linux-<arch>.tar.gz`, `tesseract-crypt_<versi>_<deb-arch>.deb` |
 
 > Semua rilis menyertakan berkas `SHA256SUMS` untuk verifikasi integritas.
+> Paket Windows `.zip` sudah memuat runtime `libsodium`; `.tar.gz`/`.deb` Linux
+> menautkan libsodium secara statis, jadi keduanya jalan tanpa dependensi tambahan.
 
 ## Build
 

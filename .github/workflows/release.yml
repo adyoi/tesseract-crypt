@@ -16,33 +16,51 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { arch: x86_64,  runner: ubuntu-latest,    flags: "",     extra: "", multiarch: "",     apt: "libsodium-dev" }
-          - { arch: i686,    runner: ubuntu-latest,    flags: "-m32", multiarch: "i386", extra: "-DCMAKE_LIBRARY_ARCHITECTURE=i386-linux-gnu", apt: "gcc-multilib g++-multilib libsodium-dev:i386" }
-          - { arch: aarch64, runner: ubuntu-24.04-arm, flags: "",     extra: "", multiarch: "",     apt: "libsodium-dev" }
+          - { arch: x86_64,  runner: ubuntu-latest,    cc: "gcc",      flags: "",     multiarch: "",     apt: "" }
+          - { arch: i686,    runner: ubuntu-latest,    cc: "gcc -m32", flags: "-m32", multiarch: "i386", apt: "gcc-multilib g++-multilib" }
+          - { arch: aarch64, runner: ubuntu-24.04-arm, cc: "gcc",     flags: "",     multiarch: "",     apt: "" }
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install libsodium
+      - name: Install toolchain
         run: |
           if [ -n "${{ matrix.multiarch }}" ]; then
             sudo dpkg --add-architecture "${{ matrix.multiarch }}"
+            sudo apt-get update
           fi
-          sudo apt-get update
-          sudo apt-get install -y ${{ matrix.apt }}
+          if [ -n "${{ matrix.apt }}" ]; then
+            sudo apt-get install -y ${{ matrix.apt }}
+          fi
+
+      - name: Build static libsodium
+        env:
+          TESS_CC: ${{ matrix.cc }}
+          TESS_FLAGS: ${{ matrix.flags }}
+        run: |
+          curl -fsSL -o libsodium.tar.gz \
+            https://github.com/jedisct1/libsodium/releases/download/1.0.20-RELEASE/libsodium-1.0.20.tar.gz
+          tar xf libsodium.tar.gz
+          cd libsodium-1.0.20
+          ./configure --disable-shared --enable-static \
+            --prefix="$PWD/../sodium-static" \
+            CC="$TESS_CC" CFLAGS="$TESS_FLAGS -O2 -fPIC"
+          make -j"$(nproc)"
+          make install
 
       - name: Configure
         env:
           TESS_ARCH: ${{ matrix.arch }}
           TESS_FLAGS: ${{ matrix.flags }}
-          TESS_EXTRA: ${{ matrix.extra }}
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
             -DTESS_WARNINGS_AS_ERRORS=ON \
             -DTESS_PACKAGE_ARCH="$TESS_ARCH" \
+            -DCMAKE_DISABLE_FIND_PACKAGE_unofficial-sodium=ON \
+            -DSODIUM_LIBRARY="$PWD/sodium-static/lib/libsodium.a" \
+            -DSODIUM_INCLUDE_DIR="$PWD/sodium-static/include" \
             -DCMAKE_C_FLAGS="$TESS_FLAGS" \
             -DCMAKE_CXX_FLAGS="$TESS_FLAGS" \
-            -DCMAKE_EXE_LINKER_FLAGS="$TESS_FLAGS" \
-            ${TESS_EXTRA}
+            -DCMAKE_EXE_LINKER_FLAGS="$TESS_FLAGS"
 
       - name: Build
         run: cmake --build build --parallel
@@ -50,13 +68,23 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
-      - name: Smoke test CLI
+      - name: Smoke test CLI (build tree)
         run: |
           ./build/tesseract-crypt version
           ./build/tscrypt version
 
       - name: Package (CPack)
         run: cmake --build build --target package
+
+      - name: Smoke test packaged archive
+        run: |
+          mkdir -p smoke
+          tar -xzf build/tesseract-crypt-*-Linux-*.tar.gz -C smoke
+          ./smoke/tesseract-crypt-*/bin/tesseract-crypt version
+          ./smoke/tesseract-crypt-*/bin/tscrypt version
+          dpkg-deb -x build/tesseract-crypt_*.deb smoke-deb
+          deb_bin=$(find smoke-deb -type f -name tesseract-crypt | head -n1)
+          "$deb_bin" version
 
       - uses: actions/upload-artifact@v4
         with:
@@ -109,6 +137,13 @@ jobs:
       - name: Package (CPack)
         run: cmake --build build --target package
 
+      - name: Smoke test packaged archive
+        run: |
+          mkdir -p smoke
+          tar -xzf build/tesseract-crypt-*-macOS-*.tar.gz -C smoke
+          ./smoke/tesseract-crypt-*/bin/tesseract-crypt version
+          ./smoke/tesseract-crypt-*/bin/tscrypt version
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-universal2
@@ -148,6 +183,24 @@ jobs:
 
       - name: Package (CPack)
         run: cmake --build build --config Release --target package
+
+      - name: Verify package bundles libsodium
+        shell: pwsh
+        run: |
+          $zip = Get-Item build/tesseract-crypt-*-Windows-*.zip
+          Expand-Archive $zip.FullName -DestinationPath smoke -Force
+          if (-not (Get-ChildItem smoke -Recurse -Filter '*sodium*.dll')) {
+            throw "libsodium runtime DLL is missing from $($zip.Name)"
+          }
+
+      - name: Smoke test packaged archive
+        if: matrix.tests
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem smoke -Recurse -Filter tesseract-crypt.exe | Select-Object -First 1
+          $alias = Get-ChildItem smoke -Recurse -Filter tscrypt.exe | Select-Object -First 1
+          & $exe.FullName version
+          & $alias.FullName version
 
       - name: Build Windows installer (Inno Setup)
         if: matrix.installer
