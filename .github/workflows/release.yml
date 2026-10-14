@@ -184,10 +184,20 @@ jobs:
           -DTESS_PACKAGE_ARCH=${{ matrix.arch }}
           -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg }}
           -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/vcpkg_installed"
+          -DVCPKG_APPLOCAL_DEPS=OFF
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      # vcpkg's per-project applocal step races when several targets link in
+      # parallel (all rewriting build/Release/libsodium.dll), so stage the DLL
+      # once instead and keep applocal disabled.
+      - name: Stage libsodium runtime DLL
+        shell: pwsh
+        run: |
+          $bin = "${{ github.workspace }}/vcpkg_installed/${{ matrix.vcpkg }}/bin"
+          Get-ChildItem $bin -Filter '*sodium*.dll' | Copy-Item -Destination build/Release -Force
 
       - name: Test
         if: matrix.tests
