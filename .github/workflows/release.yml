@@ -20,7 +20,7 @@ jobs:
           - { arch: i686,    runner: ubuntu-latest,    cc: "gcc -m32", flags: "-m32", multiarch: "i386", apt: "gcc-multilib g++-multilib" }
           - { arch: aarch64, runner: ubuntu-24.04-arm, cc: "gcc",     flags: "",     multiarch: "",     apt: "" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install toolchain
         run: |
@@ -39,6 +39,7 @@ jobs:
         run: |
           curl -fsSL -o libsodium.tar.gz \
             https://github.com/jedisct1/libsodium/releases/download/1.0.20-RELEASE/libsodium-1.0.20.tar.gz
+          echo "ebb65ef6ca439333c2bb41a0c1990587288da07f6c7fd07cb3a18cc18d30ce19  libsodium.tar.gz" | sha256sum -c -
           tar xf libsodium.tar.gz
           cd libsodium-1.0.20
           ./configure --disable-shared --enable-static \
@@ -86,7 +87,7 @@ jobs:
           deb_bin=$(find smoke-deb -type f -name tesseract-crypt | head -n1)
           "$deb_bin" version
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-${{ matrix.arch }}
           path: |
@@ -98,12 +99,13 @@ jobs:
     name: macos · universal2
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build universal libsodium (x86_64 + arm64)
         run: |
           curl -fsSL -o libsodium.tar.gz \
             https://github.com/jedisct1/libsodium/releases/download/1.0.20-RELEASE/libsodium-1.0.20.tar.gz
+          echo "ebb65ef6ca439333c2bb41a0c1990587288da07f6c7fd07cb3a18cc18d30ce19  libsodium.tar.gz" | shasum -a 256 -c -
           tar xf libsodium.tar.gz
           cd libsodium-1.0.20
           ./configure --disable-shared --prefix="$PWD/../sodium-uni" \
@@ -134,6 +136,11 @@ jobs:
           ./build/tesseract-crypt version
           ./build/tscrypt version
 
+      - name: Ad-hoc codesign (macOS)
+        run: |
+          codesign --force --sign - build/tesseract-crypt
+          codesign --force --sign - build/tscrypt
+
       - name: Package (CPack)
         run: cmake --build build --target package
 
@@ -144,7 +151,7 @@ jobs:
           ./smoke/tesseract-crypt-*/bin/tesseract-crypt version
           ./smoke/tesseract-crypt-*/bin/tscrypt version
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-universal2
           path: build/*.tar.gz
@@ -161,17 +168,22 @@ jobs:
           - { arch: x86,   vcpkg: x86-windows,   cmake_arch: Win32, tests: true,  installer: true }
           - { arch: arm64, vcpkg: arm64-windows, cmake_arch: ARM64, tests: false, installer: false }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install libsodium (vcpkg)
-        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:${{ matrix.vcpkg }}'
+      - name: Cache vcpkg installed tree
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ matrix.vcpkg }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-${{ matrix.vcpkg }}-
 
-      - name: Configure
+      - name: Configure (manifest mode)
         run: >
           cmake -S . -B build -A ${{ matrix.cmake_arch }}
           -DTESS_WARNINGS_AS_ERRORS=ON
           -DTESS_PACKAGE_ARCH=${{ matrix.arch }}
           -DVCPKG_TARGET_TRIPLET=${{ matrix.vcpkg }}
+          -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/vcpkg_installed"
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
@@ -215,7 +227,7 @@ jobs:
           Copy-Item build/Release/tesseract-crypt.exe stage/
           Copy-Item build/Release/tscrypt.exe stage/
           Copy-Item LICENSE stage/
-          $bin = "$env:VCPKG_INSTALLATION_ROOT/installed/${{ matrix.vcpkg }}/bin"
+          $bin = "${{ github.workspace }}/vcpkg_installed/${{ matrix.vcpkg }}/bin"
           Get-ChildItem $bin -Filter '*sodium*.dll' -ErrorAction SilentlyContinue |
             Copy-Item -Destination stage/
           $isccArgs = @("/DAppVersion=$ver")
@@ -230,7 +242,7 @@ jobs:
             Copy-Item -Destination dist/
           Get-ChildItem dist | ForEach-Object { Write-Host "artifact: $($_.Name)" }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-${{ matrix.arch }}
           path: dist/*
@@ -241,17 +253,40 @@ jobs:
     needs: [linux, macos, windows]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
+
+      - name: Generate SBOM (SPDX)
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/tesseract-crypt-${{ github.ref_name }}.spdx.json
+          upload-artifact: false
 
       - name: Checksums
         run: |
           cd dist
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v4
+        with:
+          subject-path: dist/*
+          sbom-path: dist/tesseract-crypt-${{ github.ref_name }}.spdx.json
 
       - name: Create or update GitHub Release
         env:

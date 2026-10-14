@@ -21,15 +21,27 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install libsodium
+      - name: Install libsodium + ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev
+          sudo apt-get install -y libsodium-dev ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ~/.ccache
+          key: ccache-${{ matrix.name }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.name }}-
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.type }} -DTESS_WARNINGS_AS_ERRORS=ON
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.type }}
+          -DTESS_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build --parallel
@@ -50,15 +62,28 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install libsodium
+      - name: Install libsodium + ccache
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev
+          sudo apt-get install -y libsodium-dev ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ~/.ccache
+          key: ccache-sanitize-${{ github.sha }}
+          restore-keys: ccache-sanitize-
 
       - name: Configure
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DTESS_SANITIZE=ON -DTESS_WARNINGS_AS_ERRORS=ON
+        run: >
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Debug
+          -DTESS_SANITIZE=ON
+          -DTESS_WARNINGS_AS_ERRORS=ON
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build --parallel
@@ -73,15 +98,21 @@ jobs:
     name: MSVC · Release (vcpkg)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install libsodium (vcpkg)
-        run: '& "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install libsodium:x64-windows'
+      - name: Cache vcpkg installed tree
+        uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-x64-windows-${{ hashFiles('vcpkg.json') }}
+          restore-keys: vcpkg-${{ runner.os }}-x64-windows-
 
-      - name: Configure
+      - name: Configure (manifest mode)
         run: >
           cmake -S . -B build
           -DTESS_WARNINGS_AS_ERRORS=ON
+          -DVCPKG_TARGET_TRIPLET=x64-windows
+          -DVCPKG_INSTALLED_DIR="${{ github.workspace }}/vcpkg_installed"
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build
@@ -99,10 +130,17 @@ jobs:
     name: AppleClang · Release
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Install libsodium
-        run: brew install libsodium
+      - name: Install libsodium + ccache
+        run: brew install libsodium ccache
+
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ~/Library/Caches/ccache
+          key: ccache-macos-${{ github.sha }}
+          restore-keys: ccache-macos-
 
       - name: Configure
         run: >
@@ -110,6 +148,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release
           -DTESS_WARNINGS_AS_ERRORS=ON
           -DCMAKE_PREFIX_PATH=$(brew --prefix)
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build
         run: cmake --build build --parallel
@@ -129,7 +169,7 @@ jobs:
       CC: clang
       CXX: clang++
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install libsodium
         run: |
@@ -153,3 +193,15 @@ jobs:
           ./build/fuzz_inspect   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_dearmor   -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
           ./build/fuzz_key_parse -max_total_time=60 -timeout=5 -rss_limit_mb=2048 -print_final_stats=1
+
+      - name: Upload fuzz crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-crashes
+          path: |
+            crash-*
+            leak-*
+            timeout-*
+            oom-*
+          if-no-files-found: ignore
