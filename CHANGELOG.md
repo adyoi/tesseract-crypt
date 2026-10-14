@@ -36,8 +36,8 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 
 ### Diubah
 
-- Windows kini memakai **vcpkg manifest** (`vcpkg.json`) dengan
-  `builtin-baseline` yang dipin, sehingga libsodium deterministik.
+- Windows kini memakai **vcpkg manifest** (`vcpkg.json`) sehingga libsodium
+  di-resolve lewat manifest dan hasil build dapat di-cache antar-job.
 - Biner rilis macOS di-*ad-hoc code sign*; unduhan libsodium diverifikasi
   terhadap **SHA256** yang dipin.
 
