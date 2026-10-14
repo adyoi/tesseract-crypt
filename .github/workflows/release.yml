@@ -310,3 +310,16 @@ jobs:
               --title "Tesseract Crypt $GITHUB_REF_NAME" \
               --generate-notes
           fi
+
+  # Runs in the same workflow run so it always follows a release: events
+  # raised with GITHUB_TOKEN do not trigger workflows on their own.
+  packages:
+    name: publish to package managers
+    needs: [release]
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+    secrets: inherit
+    uses: ./.github/workflows/packages.yml
+    with:
+      version: ${{ github.ref_name }}

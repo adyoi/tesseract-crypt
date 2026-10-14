@@ -9,6 +9,15 @@ name: Packages
 #   CHOCOLATEY_API_KEY  API key from https://push.chocolatey.org/account
 
 on:
+  # Called by release.yml right after the GitHub release is created (events
+  # raised by GITHUB_TOKEN do not trigger other workflows on their own).
+  workflow_call:
+    inputs:
+      version:
+        description: "Release tag to publish, e.g. v1.0.2"
+        required: true
+        type: string
+  # Kept for releases published by other means, plus manual backfills.
   release:
     types: [published]
   workflow_dispatch:
@@ -16,6 +25,7 @@ on:
       version:
         description: "Release tag to publish, e.g. v1.0.2"
         required: true
+        type: string
 
 jobs:
   manifests:
@@ -25,7 +35,7 @@ jobs:
       contents: read
     env:
       PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+      TAG: ${{ inputs.version || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v7
 
@@ -83,8 +93,9 @@ jobs:
     permissions:
       contents: read
     env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
       CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
-      TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+      TAG: ${{ inputs.version || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v7
 
