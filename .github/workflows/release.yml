@@ -170,6 +170,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch pinned vcpkg baseline
+        shell: pwsh
+        run: |
+          $root = $env:VCPKG_INSTALLATION_ROOT
+          $baseline = (Get-Content vcpkg.json | ConvertFrom-Json).'builtin-baseline'
+          git -C $root fetch --no-tags origin 2>&1 | Select-Object -Last 1
+          git -C $root cat-file -e "${baseline}^{commit}"
+
       - name: Cache vcpkg installed tree
         uses: actions/cache@v6
         with:
