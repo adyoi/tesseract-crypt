@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>tesseract-crypt</id>
+    <version>@@version@@</version>
+    <title>Tesseract Crypt</title>
+    <authors>adyoi</authors>
+    <projectUrl>https://github.com/adyoi/tesseract-crypt</projectUrl>
+    <license type="expression">MIT</license>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/adyoi/tesseract-crypt</projectSourceUrl>
+    <description>
+Hybrid public-key string &amp; file encryption built on libsodium:
+X25519 hybrid encryption, Ed25519 sign-then-encrypt, XChaCha20-Poly1305
+AEAD per chunk and Argon2id passphrase mode.
+    </description>
+    <summary>Hybrid public-key string &amp; file encryption (libsodium).</summary>
+    <tags>encryption cryptography libsodium cli x25519 ed25519</tags>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

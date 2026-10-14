@@ -1,0 +1,110 @@
+name: Packages
+
+# Renders Homebrew / Scoop / Chocolatey / Winget metadata from a GitHub release
+# and publishes it.  Steps that talk to third-party registries are skipped when
+# their secret is not configured, so the job stays green before setup.
+#
+# Required repository secrets to fully enable publishing:
+#   PACKAGES_TOKEN      PAT with `repo` scope (pushes tap/bucket, opens winget PR)
+#   CHOCOLATEY_API_KEY  API key from https://push.chocolatey.org/account
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to publish, e.g. v1.0.2"
+        required: true
+
+jobs:
+  manifests:
+    name: Homebrew · Scoop · Winget
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" -D dist --repo "$GITHUB_REPOSITORY"
+
+      - name: Render manifests
+        run: python3 packaging/render.py --version "${TAG#v}" --dist dist --out out
+
+      - name: Publish Homebrew formula
+        if: ${{ env.PACKAGES_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:${PACKAGES_TOKEN}@github.com/adyoi/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp out/homebrew/tesseract-crypt.rb tap/Formula/tesseract-crypt.rb
+          cd tap
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/tesseract-crypt.rb
+          if git diff --cached --quiet; then echo "Homebrew formula unchanged"; exit 0; fi
+          git commit -m "tesseract-crypt ${TAG#v}"
+          git push
+
+      - name: Publish Scoop manifest
+        if: ${{ env.PACKAGES_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:${PACKAGES_TOKEN}@github.com/adyoi/scoop-bucket.git" bucket
+          cp out/scoop/tesseract-crypt.json bucket/tesseract-crypt.json
+          cd bucket
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tesseract-crypt.json
+          if git diff --cached --quiet; then echo "Scoop manifest unchanged"; exit 0; fi
+          git commit -m "tesseract-crypt ${TAG#v}"
+          git push
+
+      - name: Publish to Winget
+        if: ${{ env.PACKAGES_TOKEN != '' }}
+        uses: vedantmgoyal2009/winget-releaser@v2
+        with:
+          identifier: adyoi.tesseract-crypt
+          installers-regex: 'windows-.*-setup\.exe$'
+          release-tag: ${{ env.TAG }}
+          token: ${{ env.PACKAGES_TOKEN }}
+
+  chocolatey:
+    name: Chocolatey
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+      TAG: ${{ github.event.release.tag_name || github.event.inputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$TAG" -D dist --repo "$GITHUB_REPOSITORY"
+
+      - name: Render manifests
+        shell: bash
+        run: python packaging/render.py --version "${TAG#v}" --dist dist --out out
+
+      - name: Pack
+        shell: pwsh
+        run: choco pack out/chocolatey/tesseract-crypt.nuspec --outdir out/chocolatey
+
+      - name: Push to Chocolatey
+        if: ${{ env.CHOCOLATEY_API_KEY != '' }}
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem out/chocolatey/*.nupkg | Select-Object -First 1
+          choco push $pkg.FullName --source https://push.chocolatey.org/ --api-key $env:CHOCOLATEY_API_KEY
