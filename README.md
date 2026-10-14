@@ -7,6 +7,7 @@
 [![CI](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml)
 [![Pages](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml)
 [![Release](https://img.shields.io/github/v/release/adyoi/tesseract-crypt)](https://github.com/adyoi/tesseract-crypt/releases)
+[![CodeQL](https://github.com/adyoi/tesseract-crypt/actions/workflows/codeql.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6ee7ff.svg)](LICENSE)
 
 **Enkripsi string & file dengan public/private key — hibrida modern, streaming, bertanda tangan.**
@@ -60,6 +61,20 @@ sudo apt install tesseract-crypt
 > Verifikasi kunci: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
 > → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
 
+## Paket lain
+
+| Manajer | Platform | Perintah |
+|---------|----------|----------|
+| **Homebrew** | macOS, Linux | `brew tap adyoi/tap && brew install tesseract-crypt` |
+| **Scoop** | Windows | `scoop bucket add adyoi https://github.com/adyoi/scoop-bucket` lalu `scoop install tesseract-crypt` |
+| **Winget** | Windows | `winget install adyoi.tesseract-crypt` |
+| **Chocolatey** | Windows | `choco install tesseract-crypt` |
+
+> Formula dan manifest di atas dibangkitkan otomatis dari setiap rilis oleh
+> alur kerja [`packages.yml`](.github/workflows/packages.yml) — repositori
+> pendamping: [`adyoi/homebrew-tap`](https://github.com/adyoi/homebrew-tap),
+> [`adyoi/scoop-bucket`](https://github.com/adyoi/scoop-bucket).
+
 ## Unduh
 
 Paket siap pakai tersedia di
@@ -75,6 +90,26 @@ Paket siap pakai tersedia di
 > Semua rilis menyertakan berkas `SHA256SUMS` untuk verifikasi integritas.
 > Paket Windows `.zip` sudah memuat runtime `libsodium`; `.tar.gz`/`.deb` Linux
 > menautkan libsodium secara statis, jadi keduanya jalan tanpa dependensi tambahan.
+
+### Verifikasi rilis
+
+Setiap rilis menyertakan checksum, SBOM SPDX, dan *build provenance* (Sigstore)
+yang dapat diverifikasi:
+
+```bash
+# 1. cocokkan checksum
+sha256sum -c SHA256SUMS
+
+# 2. verifikasi provenance artefak (mis. dari tag v1.0.2)
+gh attestation verify tesseract-crypt-1.0.2-Windows-x64.zip \
+  --repo adyoi/tesseract-crypt
+
+# 3. periksa isi SBOM SPDX
+jq '.packages[].name' tesseract-crypt-v1.0.2.spdx.json
+```
+
+> Selain berkas di atas, tersedia juga **Homebrew**, **Scoop**, **Winget** dan
+> **Chocolatey** — lihat [Paket lain](#paket-lain).
 
 ## Build
 

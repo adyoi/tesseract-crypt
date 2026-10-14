@@ -7,6 +7,7 @@
 [![CI](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/ci.yml)
 [![Pages](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/pages.yml)
 [![Release](https://img.shields.io/github/v/release/adyoi/tesseract-crypt)](https://github.com/adyoi/tesseract-crypt/releases)
+[![CodeQL](https://github.com/adyoi/tesseract-crypt/actions/workflows/codeql.yml/badge.svg)](https://github.com/adyoi/tesseract-crypt/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-6ee7ff.svg)](LICENSE)
 
 **Encrypt strings & files with public/private keys — modern hybrid, streaming, signed.**
@@ -59,6 +60,21 @@ sudo apt install tesseract-crypt
 > Verify the key: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
 > → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
 
+## Other package managers
+
+| Manager | Platform | Command |
+|---------|----------|---------|
+| **Homebrew** | macOS, Linux | `brew tap adyoi/tap && brew install tesseract-crypt` |
+| **Scoop** | Windows | `scoop bucket add adyoi https://github.com/adyoi/scoop-bucket` then `scoop install tesseract-crypt` |
+| **Winget** | Windows | `winget install adyoi.tesseract-crypt` |
+| **Chocolatey** | Windows | `choco install tesseract-crypt` |
+
+> The formula and manifests above are refreshed automatically from every
+> release by the [`packages.yml`](.github/workflows/packages.yml) workflow —
+> companion repos:
+> [`adyoi/homebrew-tap`](https://github.com/adyoi/homebrew-tap),
+> [`adyoi/scoop-bucket`](https://github.com/adyoi/scoop-bucket).
+
 ## Download
 
 Ready-to-use packages are available on
@@ -74,6 +90,27 @@ Ready-to-use packages are available on
 > Every release ships a `SHA256SUMS` file for integrity verification.
 > The Windows `.zip` bundles the `libsodium` runtime; Linux `.tar.gz`/`.deb`
 > link libsodium statically, so both run with no extra dependencies.
+
+### Verifying releases
+
+Every release ships checksums, an SPDX SBOM, and Sigstore *build provenance*
+you can verify:
+
+```bash
+# 1. match the checksums
+sha256sum -c SHA256SUMS
+
+# 2. verify an artifact's provenance (e.g. from tag v1.0.2)
+gh attestation verify tesseract-crypt-1.0.2-Windows-x64.zip \
+  --repo adyoi/tesseract-crypt
+
+# 3. inspect the SPDX SBOM
+jq '.packages[].name' tesseract-crypt-v1.0.2.spdx.json
+```
+
+> Besides the files above, **Homebrew**, **Scoop**, **Winget** and
+> **Chocolatey** are also supported — see
+> [Other package managers](#other-package-managers).
 
 ## Build
 
