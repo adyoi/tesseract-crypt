@@ -6,7 +6,7 @@
     <title>Tesseract Crypt</title>
     <authors>adyoi</authors>
     <projectUrl>https://github.com/adyoi/tesseract-crypt</projectUrl>
-    <license type="expression">MIT</license>
+    <licenseUrl>https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/adyoi/tesseract-crypt</projectSourceUrl>
     <description>
