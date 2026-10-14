@@ -21,6 +21,25 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 - **Smoke test paket di CI**: setiap job merilis mengekstrak arsip hasil
   (`tar.gz`/`.zip`) lalu menjalankan `tesseract-crypt version` (dan `tscrypt`)
   untuk menjamin paket benar-benar jalan — menutup celah DLL/library yang hilang.
+- **Metadata paket**: `pkg-config` (`tesseract-crypt.pc`) dan CMake package
+  config (`tesseract-config.cmake` + `FindSodium.cmake`) kini ikut ter-install,
+  sehingga `pkg-config` dan `find_package(tesseract)` bekerja untuk konsumen.
+- **LICENSE & README** ikut dalam setiap arsip (`zip`/`tar.gz`/`.deb`).
+- **Distribusi pihak ketiga**: formula Homebrew
+  ([`adyoi/homebrew-tap`](https://github.com/adyoi/homebrew-tap)), manifest
+  Scoop ([`adyoi/scoop-bucket`](https://github.com/adyoi/scoop-bucket)), Winget
+  dan Chocolatey — semuanya dibangkitkan otomatis dari setiap rilis oleh
+  `packages.yml`.
+- **Provenance & SBOM**: setiap rilis menerbitkan SBOM SPDX dan attestation
+  build provenance (Sigstore) yang dapat diverifikasi dengan
+  `gh attestation verify`.
+
+### Diubah
+
+- Windows kini memakai **vcpkg manifest** (`vcpkg.json`) dengan
+  `builtin-baseline` yang dipin, sehingga libsodium deterministik.
+- Biner rilis macOS di-*ad-hoc code sign*; unduhan libsodium diverifikasi
+  terhadap **SHA256** yang dipin.
 
 ## [1.0.1] — 2026-10-12
 
