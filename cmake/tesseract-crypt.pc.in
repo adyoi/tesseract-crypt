@@ -1,0 +1,12 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: tesseract-crypt
+Description: Hybrid public-key string & file encryption (X25519 + Ed25519 sign-then-encrypt)
+URL: https://github.com/adyoi/tesseract-crypt
+Version: @PROJECT_VERSION@
+Libs: -L${libdir} -ltesseract_crypt
+Requires.private: libsodium
+Cflags: -I${includedir}

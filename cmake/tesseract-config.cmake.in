@@ -2,12 +2,16 @@
 
 include(CMakeFindDependencyMacro)
 
-# libsodium is a public dependency: consumers need it too.
-find_dependency(Sodium QUIET)
-if(NOT Sodium_FOUND)
-    find_dependency(unofficial-sodium CONFIG)
+# libsodium is a public dependency.  Prefer whichever package this build used,
+# and fall back to the bundled finder shipped next to this file.
+if(TARGET @TESS_SODIUM_TARGET@)
+    # Sodium target already provided by the consumer's toolchain.
+elseif("@TESS_SODIUM_FIND@" STREQUAL "unofficial-sodium")
+    find_dependency(unofficial-sodium REQUIRED)
+else()
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+    find_dependency(Sodium REQUIRED)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/tesseractTargets.cmake")
-
 check_required_components(tesseract)

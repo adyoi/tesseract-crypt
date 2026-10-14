@@ -31,10 +31,12 @@ endif()
 find_package(unofficial-sodium CONFIG QUIET)
 if(TARGET unofficial-sodium::sodium)
     set(TESS_SODIUM_TARGET unofficial-sodium::sodium)
+    set(TESS_SODIUM_FIND unofficial-sodium)
 else()
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
     find_package(Sodium REQUIRED)
     set(TESS_SODIUM_TARGET Sodium::sodium)
+    set(TESS_SODIUM_FIND Sodium)
 endif()
 
 # Detect a static libsodium so packaging can drop the runtime dependency
@@ -189,6 +191,10 @@ install(TARGETS tesseract_crypt
 install(DIRECTORY include/tesseract
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
+# License + a short readme travel with every package (zip/tar.gz/deb).
+install(FILES LICENSE README.en.md
+    DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
 if(TESS_BUILD_CLI)
     install(TARGETS ${TESS_CLI_TARGET}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
@@ -255,6 +261,17 @@ install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/tesseract-config-version.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tesseract)
 
+# Relocatable pkg-config metadata (prefix derived from ${pcfiledir}).
+configure_file(cmake/tesseract-crypt.pc.in
+    "${CMAKE_CURRENT_BINARY_DIR}/tesseract-crypt.pc" @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/tesseract-crypt.pc"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+
+# Ship our sodium finder so a downstream find_package(tesseract) can resolve
+# Sodium::sodium even when the consumer has no vcpkg/unofficial-sodium package.
+install(FILES cmake/FindSodium.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/tesseract)
+
 # ------------------------------------------------------------------ #
 # packaging                                                           #
 # ------------------------------------------------------------------ #
@@ -275,14 +292,6 @@ elseif(APPLE)
     set(TESS_OS_NAME "macOS")
 else()
     set(TESS_OS_NAME "Linux")
-endif()
-
-if(NOT TESS_PACKAGE_ARCH)
-    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
-        set(TESS_PACKAGE_ARCH "i686")
-    else()
-        set(TESS_PACKAGE_ARCH "x86_64")
-    endif()
 endif()
 
 if(NOT TESS_PACKAGE_ARCH)
