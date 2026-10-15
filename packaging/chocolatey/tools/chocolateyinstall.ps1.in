@@ -5,6 +5,12 @@ $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $packageArgs = @{
   packageName    = 'tesseract-crypt'
   fileType       = 'exe'
+  # 32-bit installer: used on 32-bit Windows.  Both architectures are shipped
+  # in the GitHub release, so the package must stay installable on x86.
+  url            = '@@url_setup_x86@@'
+  checksum       = '@@sha_setup_x86@@'
+  checksumType   = 'sha256'
+  # 64-bit installer: preferred on 64-bit Windows.
   url64bit       = '@@url_setup_x64@@'
   checksum64     = '@@sha_setup_x64@@'
   checksumType64 = 'sha256'
