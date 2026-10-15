@@ -78,8 +78,25 @@ jobs:
           git commit -m "tesseract-crypt ${TAG#v}"
           git push
 
-      - name: Publish to Winget
+      # winget-releaser can only *update* a package that already exists in
+      # microsoft/winget-pkgs; a first submission has to be made by hand once.
+      # Skip the step (with a notice) instead of failing the whole run.
+      - name: Check Winget package
+        id: winget
         if: ${{ env.PACKAGES_TOKEN != '' }}
+        env:
+          GH_TOKEN: ${{ env.PACKAGES_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/microsoft/winget-pkgs/contents/manifests/a/adyoi/tesseract-crypt" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::adyoi.tesseract-crypt is not in microsoft/winget-pkgs yet; skipping Winget."
+          fi
+
+      - name: Publish to Winget
+        if: ${{ env.PACKAGES_TOKEN != '' && steps.winget.outputs.exists == 'true' }}
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: adyoi.tesseract-crypt
