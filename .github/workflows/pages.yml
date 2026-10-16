@@ -54,11 +54,20 @@ jobs:
             # build into a staging root, then merge so docs/apt/tesseract-crypt.asc
             # (the committed public half of the signing key) survives the
             # script's `rm -rf $APT`.
+            #
+            # Signing key: RSA 4096, expires 2027-10-16.  To rotate it, generate
+            # a new key, update this fingerprint and docs/apt/tesseract-crypt.asc,
+            # and refresh the APT_SIGNING_KEY / APT_SIGNING_KEY_PASSPHRASE secrets.
             bash scripts/build-apt-repo.sh "$DEB" apt-stage \
-              747E1BDB928B31017718FD38E1206C365D198C58
+              C351BD054C5D726E8927B078F1E9112FDF2771A4
             cp -r apt-stage/. site/apt/
           else
-            echo "APT_SIGNING_KEY or .deb missing — publishing docs only"
+            echo "publishing docs only"
+            if [ -z "$DEB" ]; then
+              echo "::warning::no .deb in build/ — the APT repository was not published"
+            else
+              echo "::warning::APT_SIGNING_KEY is not set — the APT repository was not published, but the site still documents 'apt install tesseract-crypt'"
+            fi
           fi
           find site -maxdepth 4 -type f | sort | head -30
 
