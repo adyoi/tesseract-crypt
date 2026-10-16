@@ -4,6 +4,17 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
+## [Unreleased]
+
+### Diperbaiki
+
+- **Repo APT (GitHub Pages)** kini benar-benar terbit. Sebelumnya langkah Pages
+  selalu jatuh ke jalur "docs only" karena secret penandatangan belum ada, jadi
+  `apt install tesseract-crypt` yang didokumentasikan tidak pernah bisa jalan.
+  Kunci penandatangan baru (RSA 4096, berlaku sampai 2027-10-16) dipasang sebagai
+  secret, sidik jari di workflow serta kunci publik di `docs/apt/` diperbarui, dan
+  langkah Pages kini memberi peringatan (`::warning::`) bila repo APT dilewati.
+
 ## [1.0.3] — 2026-10-16
 
 ### Diperbaiki
