@@ -5,16 +5,21 @@
     <version>@@version@@</version>
     <title>Tesseract Crypt</title>
     <authors>adyoi</authors>
+    <owners>adyoi</owners>
     <projectUrl>https://github.com/adyoi/tesseract-crypt</projectUrl>
     <licenseUrl>https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/adyoi/tesseract-crypt</projectSourceUrl>
+    <packageSourceUrl>https://github.com/adyoi/tesseract-crypt/tree/main/packaging/chocolatey</packageSourceUrl>
+    <docsUrl>https://adyoi.github.io/tesseract-crypt/</docsUrl>
+    <bugTrackerUrl>https://github.com/adyoi/tesseract-crypt/issues</bugTrackerUrl>
     <description>
 Hybrid public-key string &amp; file encryption built on libsodium:
 X25519 hybrid encryption, Ed25519 sign-then-encrypt, XChaCha20-Poly1305
 AEAD per chunk and Argon2id passphrase mode.
     </description>
     <summary>Hybrid public-key string &amp; file encryption (libsodium).</summary>
+    <releaseNotes>https://github.com/adyoi/tesseract-crypt/blob/main/CHANGELOG.md</releaseNotes>
     <tags>encryption cryptography libsodium cli x25519 ed25519</tags>
   </metadata>
   <files>

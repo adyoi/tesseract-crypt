@@ -26,6 +26,11 @@ compile_commands.json
 *~
 .cache/
 
+# Python (alat packaging)
+__pycache__/
+*.pyc
+
+
 # Key & data uji (jangan pernah di-commit)
 *.key
 *.pub

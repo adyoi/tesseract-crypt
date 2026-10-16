@@ -83,7 +83,8 @@ def main():
     macos = asset("tesseract-crypt-%s-macOS-universal2.tar.gz" % version)
     linux_amd64 = asset("tesseract-crypt-%s-Linux-x86_64.tar.gz" % version)
     linux_arm64 = asset("tesseract-crypt-%s-Linux-aarch64.tar.gz" % version)
-    win_setup = asset("tesseract-crypt-%s-windows-x64-setup.exe" % version)
+    win_setup_x64 = asset("tesseract-crypt-%s-windows-x64-setup.exe" % version)
+    win_setup_x86 = asset("tesseract-crypt-%s-windows-x86-setup.exe" % version)
 
     homebrew = render(
         os.path.join(HERE, "homebrew", "tesseract-crypt.rb.in"),
@@ -137,13 +138,26 @@ def main():
         os.path.join(HERE, "chocolatey", "tools", "chocolateyinstall.ps1.in"),
         {
             "version": version,
-            "url_setup_x64": win_setup[0],
-            "sha_setup_x64": win_setup[1],
+            "url_setup_x64": win_setup_x64[0],
+            "sha_setup_x64": win_setup_x64[1],
+            "url_setup_x86": win_setup_x86[0],
+            "sha_setup_x86": win_setup_x86[1],
         },
     )
     write(
         os.path.join(args.out, "chocolatey", "tools", "chocolateyinstall.ps1"),
         install_ps1,
+    )
+
+    # No placeholders: the uninstaller resolves the Inno Setup entry by
+    # wildcard at uninstall time.
+    uninstall_ps1 = render(
+        os.path.join(HERE, "chocolatey", "tools", "chocolateyuninstall.ps1.in"),
+        {},
+    )
+    write(
+        os.path.join(args.out, "chocolatey", "tools", "chocolateyuninstall.ps1"),
+        uninstall_ps1,
     )
 
 

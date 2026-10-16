@@ -1,0 +1,35 @@
+# Uninstaller for the Inno Setup installer published by this package.
+#
+# Inno Setup writes UninstallDisplayName as "<AppName> <Version>"
+# ("Tesseract Crypt 1.0.2"), so Chocolatey's default auto-uninstall - which
+# looks the package up by its *package name* ("tesseract-crypt") - would not
+# find it.  Hence this explicit, wildcard-based lookup.
+$ErrorActionPreference = 'Stop'
+
+$packageName  = 'tesseract-crypt'
+$softwareName = 'Tesseract Crypt*'
+$installerType = 'exe'
+$silentArgs   = '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-'
+$validExitCodes = @(0)
+
+[array] $key = Get-UninstallRegistryKey -SoftwareName $softwareName
+
+if ($key.Count -eq 1) {
+  $key | ForEach-Object {
+    # UninstallString is usually a quoted path ("C:\...\unins000.exe").
+    $file = $_.UninstallString
+    if ($file -match '^"([^"]+)"') { $file = $Matches[1] }
+    Uninstall-ChocolateyPackage -PackageName $packageName `
+      -FileType $installerType `
+      -SilentArgs $silentArgs `
+      -File $file `
+      -ValidExitCodes $validExitCodes
+  }
+}
+elseif ($key.Count -eq 0) {
+  Write-Warning "$packageName has already been uninstalled by other means."
+}
+else {
+  Write-Warning "$($key.Count) matching uninstall entries found; refusing to guess."
+  $key | ForEach-Object { Write-Warning "- $($_.DisplayName)" }
+}

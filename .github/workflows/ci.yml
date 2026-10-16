@@ -213,3 +213,15 @@ jobs:
             timeout-*
             oom-*
           if-no-files-found: ignore
+
+  # Renders the Homebrew / Scoop / Chocolatey metadata from a synthetic
+  # SHA256SUMS file and checks the result (hash wiring, uninstall script vs.
+  # Inno Setup display name, version consistency).
+  packaging:
+    name: Packaging self-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Render + validate release metadata
+        run: python3 packaging/selftest.py
