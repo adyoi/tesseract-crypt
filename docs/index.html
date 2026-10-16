@@ -38,7 +38,8 @@
       built for Linux, constant memory, and verify-before-write.
     </p>
     <p class="cta">
-      <a class="btn primary" href="#quickstart">Quick start</a>
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn" href="#quickstart">Quick start</a>
       <a class="btn" href="cli.html">CLI reference</a>
       <a class="btn" href="format.html">Format spec</a>
       <a class="btn" href="features.html">Features</a>
@@ -46,7 +47,34 @@
     </p>
   </section>
 
-  <section class="grid">
+  <section id="install">
+    <h2>Install</h2>
+    <p class="lead">
+      Every <a href="https://github.com/adyoi/tesseract-crypt/releases/latest">release</a>
+      ships prebuilt binaries for Linux (x86_64, aarch64, i686), macOS
+      (universal2) and Windows (x64, x86, arm64), together with
+      <code>SHA256SUMS</code> and an SPDX SBOM. Or use a package manager:
+    </p>
+<pre class="code"><span class="c"># Homebrew (macOS / Linux)</span>
+brew tap adyoi/tap &amp;&amp; brew install tesseract-crypt
+
+<span class="c"># Scoop (Windows)</span>
+scoop bucket add adyoi https://github.com/adyoi/scoop-bucket
+scoop install tesseract-crypt
+
+<span class="c"># WinGet (Windows)</span>
+winget install adyoi.tesseract-crypt
+
+<span class="c"># Chocolatey (Windows)</span>
+choco install tesseract-crypt
+
+<span class="c"># APT — Debian / Ubuntu (signed repository, amd64)</span>
+curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
+echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
+sudo apt update &amp;&amp; sudo apt install tesseract-crypt</pre>
+  </section>
     <article>
       <h3>Hybrid public-key</h3>
       <p>Every message uses an <em>ephemeral</em> X25519 key (forward secrecy)
@@ -152,7 +180,7 @@ tess_seal((<span class="k">const</span> uint8_t *)<span class="s">"secret"</span
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
       </nav>
-      <span class="foot-meta mono">v1.0.2 · © 2026</span>
+      <span class="foot-meta mono">__VERSION__ · © 2026</span>
     </div>
   </div>
 </footer>

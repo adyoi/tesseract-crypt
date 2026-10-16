@@ -38,12 +38,42 @@
       dirancang untuk Linux, memori konstan, dan verifikasi sebelum tulis.
     </p>
     <p class="cta">
-      <a class="btn primary" href="#quickstart">Mulai cepat</a>
+      <a class="btn primary" href="#install">Pasang</a>
+      <a class="btn" href="#quickstart">Mulai cepat</a>
       <a class="btn" href="cli.html">Referensi CLI</a>
       <a class="btn" href="format.html">Spesifikasi format</a>
       <a class="btn" href="features.html">Fitur</a>
       <a class="btn" href="performance.html">Kinerja</a>
     </p>
+  </section>
+
+  <section id="install">
+    <h2>Pasang</h2>
+    <p class="lead">
+      Setiap <a href="https://github.com/adyoi/tesseract-crypt/releases/latest">rilis</a>
+      menyertakan biner siap pakai untuk Linux (x86_64, aarch64, i686), macOS
+      (universal2) dan Windows (x64, x86, arm64) — lengkap dengan
+      <code>SHA256SUMS</code> dan SBOM SPDX. Atau lewat manajer paket:
+    </p>
+<pre class="code"><span class="c"># Homebrew (macOS / Linux)</span>
+brew tap adyoi/tap &amp;&amp; brew install tesseract-crypt
+
+<span class="c"># Scoop (Windows)</span>
+scoop bucket add adyoi https://github.com/adyoi/scoop-bucket
+scoop install tesseract-crypt
+
+<span class="c"># WinGet (Windows)</span>
+winget install adyoi.tesseract-crypt
+
+<span class="c"># Chocolatey (Windows)</span>
+choco install tesseract-crypt
+
+<span class="c"># APT — Debian / Ubuntu (repositori bertanda tangan, amd64)</span>
+curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
+echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
+sudo apt update &amp;&amp; sudo apt install tesseract-crypt</pre>
   </section>
 
   <section class="grid">
@@ -148,7 +178,7 @@ tess_seal((<span class="k">const</span> uint8_t *)<span class="s">"rahasia"</spa
         <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Keamanan</a>
         <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">Lisensi</a>
       </nav>
-      <span class="foot-meta mono">v1.0.2 · © 2026</span>
+      <span class="foot-meta mono">__VERSION__ · © 2026</span>
     </div>
   </div>
 </footer>
