@@ -62,6 +62,26 @@ jobs:
           fi
           find site -maxdepth 4 -type f | sort | head -30
 
+      # The docs footer carries __VERSION__ so no HTML has to be edited for a
+      # release; stamp it here.  Falls back to the CMake project version when
+      # the release lookup fails (e.g. before the first release).
+      - name: Stamp release version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+          if [ -z "$version" ]; then
+            version="v$(sed -n 's/^ *VERSION *\([0-9][0-9.]*\)$/\1/p' CMakeLists.txt | head -1)"
+          fi
+          echo "stamping site with $version"
+          grep -rl '__VERSION__' site --include='*.html' | xargs -r sed -i "s|__VERSION__|$version|g"
+          if grep -rn '__VERSION__' site --include='*.html'; then
+            echo "::error::unreplaced __VERSION__ placeholder"
+            exit 1
+          fi
+
       - name: Upload site/
         uses: actions/upload-pages-artifact@v5
         with:
