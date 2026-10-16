@@ -97,7 +97,8 @@ jobs:
 
       - name: Publish to Winget
         if: ${{ env.PACKAGES_TOKEN != '' && steps.winget.outputs.exists == 'true' }}
-        uses: vedantmgoyal2009/winget-releaser@v2
+        # Pinned: this third-party action receives PACKAGES_TOKEN (repo scope).
+        uses: vedantmgoyal2009/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
         with:
           identifier: adyoi.tesseract-crypt
           installers-regex: 'windows-.*-setup\.exe$'
@@ -110,7 +111,6 @@ jobs:
     permissions:
       contents: read
     env:
-      PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
       CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
       TAG: ${{ inputs.version || github.event.release.tag_name }}
     steps:
@@ -130,8 +130,25 @@ jobs:
         shell: pwsh
         run: choco pack out/chocolatey/tesseract-crypt.nuspec --outdir out/chocolatey
 
+      # Pushing a version the community feed already knows about (published or
+      # still in moderation) is at best a no-op, so backfills of an existing
+      # tag stay green instead of failing the job.
+      - name: Check Chocolatey package
+        id: choco
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          url="https://community.chocolatey.org/api/v2/Packages(Id='tesseract-crypt',Version='${version}')"
+          if curl -fs -o /dev/null "$url"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::tesseract-crypt ${version} is already on the community feed; skipping the push."
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Push to Chocolatey
-        if: ${{ env.CHOCOLATEY_API_KEY != '' }}
+        if: ${{ env.CHOCOLATEY_API_KEY != '' && steps.choco.outputs.published != 'true' }}
         shell: pwsh
         run: |
           $pkg = Get-ChildItem out/chocolatey/*.nupkg | Select-Object -First 1
