@@ -254,21 +254,54 @@ def test_templates_are_used():
 
 
 def test_version_consistency():
-    """CMakeLists.txt, vcpkg.json and CHANGELOG.md must agree."""
+    """Every hand-maintained copy of the project version must agree.
+
+    CMakeLists.txt is the source of truth; the others are duplicated by hand
+    (the header drives `tesseract-crypt version`, the man page and the Inno
+    Setup fallback are user visible), so they drift silently unless checked.
+    """
+
+    def src(rel):
+        text = (REPO / rel).read_text(encoding="utf-8")
+        return text.replace("\r\n", "\n")  # tolerate a CRLF checkout
+
     cmake = re.search(
         r"project\(\s*tesseract-crypt\s+VERSION\s+([0-9][0-9.]*)",
-        (REPO / "CMakeLists.txt").read_text(encoding="utf-8"),
+        src("CMakeLists.txt"),
     )
-    vcpkg = json.loads((REPO / "vcpkg.json").read_text(encoding="utf-8"))
+    vcpkg = json.loads(src("vcpkg.json"))
     changelog = re.search(
         r"^##\s*\[([0-9][0-9.]*)\]",
-        (REPO / "CHANGELOG.md").read_text(encoding="utf-8"),
+        src("CHANGELOG.md"),
         re.MULTILINE,
+    )
+    header = src("include/tesseract/tesseract.h")
+    header_string = re.search(
+        r'^#define TESS_VERSION_STRING "([0-9][0-9.]*)"', header, re.MULTILINE
+    )
+    header_macros = re.search(
+        r"^#define TESS_VERSION_MAJOR (\d+)\n"
+        r"#define TESS_VERSION_MINOR (\d+)\n"
+        r"#define TESS_VERSION_PATCH (\d+)$",
+        header,
+        re.MULTILINE,
+    )
+    man = re.search(
+        r'\.TH\s+\S+\s+\d+\s+"[^"]*"\s+"tesseract-crypt ([0-9][0-9.]*)"',
+        src("man/tesseract-crypt.1"),
+    )
+    inno = re.search(
+        r'#define AppVersion "([0-9][0-9.]*)"',
+        src("packaging/windows/tesseract-crypt.iss"),
     )
     versions = {
         "CMakeLists.txt": cmake.group(1) if cmake else None,
         "vcpkg.json": vcpkg.get("version-semver"),
         "CHANGELOG.md": changelog.group(1) if changelog else None,
+        "tesseract.h string": header_string.group(1) if header_string else None,
+        "tesseract.h macros": ".".join(header_macros.groups()) if header_macros else None,
+        "man/tesseract-crypt.1": man.group(1) if man else None,
+        "tesseract-crypt.iss": inno.group(1) if inno else None,
     }
     check(
         None not in versions.values() and len(set(versions.values())) == 1,

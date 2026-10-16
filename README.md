@@ -100,12 +100,12 @@ yang dapat diverifikasi:
 # 1. cocokkan checksum
 sha256sum -c SHA256SUMS
 
-# 2. verifikasi provenance artefak (mis. dari tag v1.0.2)
-gh attestation verify tesseract-crypt-1.0.2-Windows-x64.zip \
+# 2. verifikasi provenance artefak (mis. dari tag v1.0.3)
+gh attestation verify tesseract-crypt-1.0.3-Windows-x64.zip \
   --repo adyoi/tesseract-crypt
 
 # 3. periksa isi SBOM SPDX
-jq '.packages[].name' tesseract-crypt-v1.0.2.spdx.json
+jq '.packages[].name' tesseract-crypt-v1.0.3.spdx.json
 ```
 
 > Selain berkas di atas, tersedia juga **Homebrew**, **Scoop**, **Winget** dan

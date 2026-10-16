@@ -4,7 +4,7 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
-## [Unreleased]
+## [1.0.3] — 2026-10-16
 
 ### Diperbaiki
 

@@ -2,7 +2,7 @@
 """Render Homebrew, Scoop and Chocolatey manifests for a tesseract-crypt release.
 
 Usage:
-    render.py --version 1.0.2 --dist dist --out out [--repo adyoi/tesseract-crypt]
+    render.py --version 1.2.3 --dist dist --out out [--repo adyoi/tesseract-crypt]
 
 Hashes are taken from the asset files in --dist when present, otherwise from a
 ``SHA256SUMS`` file in the same directory, so the script also runs without the
