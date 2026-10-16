@@ -4,6 +4,36 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
+## [Unreleased]
+
+### Diperbaiki
+
+- **Paket Chocolatey**: installer **x86** kini benar-benar dipakai pada Windows
+  32-bit (`url`/`checksum`, sebelumnya hanya `url64bit`), dan `choco uninstall`
+  kembali bekerja — entri Inno Setup beregistrasi sebagai `Tesseract Crypt
+  &lt;versi&gt;` (bukan `tesseract-crypt`) sehingga tidak pernah cocok dengan
+  nama paket; kini dicari lewat wildcard oleh `chocolateyuninstall.ps1`.
+- **Metadata nuspec**: `owners`, `packageSourceUrl`, `docsUrl`, `bugTrackerUrl`
+  dan `releaseNotes` ditambahkan sesuai pedoman moderasi chocolatey.org.
+
+### Ditambahkan
+
+- **Self-test paket di CI**: `packaging/selftest.py` merender rilis sintetis lalu
+  memvalidasi tautan hash, XML/JSON yang valid, tidak ada placeholder tersisa,
+  skrip uninstall cocok dengan nama aplikasi Inno Setup, dan versi konsisten
+  antara `CMakeLists.txt`, `vcpkg.json` dan `CHANGELOG.md`.
+
+### Diubah
+
+- **Situs**: halaman utama (EN/ID) mendapat bagian **Install/Pasang** dengan
+  perintah Homebrew, Scoop, WinGet, Chocolatey dan repositori APT; versi footer
+  di-stamp saat situs dibangun, bukan ditulis manual di 12 berkas HTML.
+- **Alur kerja rilis**: `choco push` dilewati bila versi sudah dikenal feed
+  (terbit maupun masih moderasi) sehingga backfill tidak membuat entri moderasi
+  ganda; action pihak ketiga (`winget-releaser`, `sbom-action`) dipin ke commit
+  SHA, dan langkah Winget dilewati (dengan notice) sampai paketnya ada di
+  `microsoft/winget-pkgs`.
+
 ## [1.0.2] — 2026-10-13
 
 ### Diperbaiki
