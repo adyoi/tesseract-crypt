@@ -1,7 +1,7 @@
 # Uninstaller for the Inno Setup installer published by this package.
 #
 # Inno Setup writes UninstallDisplayName as "<AppName> <Version>"
-# ("Tesseract Crypt 1.0.2"), so Chocolatey's default auto-uninstall - which
+# ("Tesseract Crypt 1.2.3"), so Chocolatey's default auto-uninstall - which
 # looks the package up by its *package name* ("tesseract-crypt") - would not
 # find it.  Hence this explicit, wildcard-based lookup.
 $ErrorActionPreference = 'Stop'
