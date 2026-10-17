@@ -59,7 +59,7 @@ jobs:
             # a new key, update this fingerprint and docs/apt/tesseract-crypt.asc,
             # and refresh the APT_SIGNING_KEY / APT_SIGNING_KEY_PASSPHRASE secrets.
             bash scripts/build-apt-repo.sh "$DEB" apt-stage \
-              C351BD054C5D726E8927B078F1E9112FDF2771A4
+              7C2027584065349E9B1A21A4374ED7B8C78B6673
             cp -r apt-stage/. site/apt/
           else
             echo "publishing docs only"
