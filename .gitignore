@@ -40,6 +40,9 @@ __pycache__/
 !tests/fixtures/*.key
 !tests/fixtures/*.pub
 
+# Cadangan kunci penandatangan APT (lokal saja, jangan pernah di-commit)
+.apt-keys/
+
 # OS
 .DS_Store
 Thumbs.db
