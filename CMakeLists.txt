@@ -384,6 +384,16 @@ else()
     set(CPACK_RPM_PACKAGE_VENDOR "Tesseract Crypt maintainers")
     set(CPACK_RPM_PACKAGE_GROUP "Unspecified")
     set(CPACK_RPM_PACKAGE_URL "${CMAKE_PROJECT_HOMEPAGE_URL}")
+    # The .pc file is the only file in the payload that names libsodium, and it
+    # does so under Requires.private (needed only when a consumer links the
+    # static lib, not at run time -- the executables link libsodium statically).
+    # rpm's pkgconfig dependency generator turns that into a runtime
+    # "Requires: pkgconfig(libsodium)", which would demand libsodium-devel on
+    # install.  The generator only scans canonical libdirs, so this shows up on
+    # i686 (/usr/lib) and not on x86_64/aarch64, where the same file is skipped.
+    # The automatically detected libc/libstdc++ requirements are untouched.
+    set(CPACK_RPM_REQUIRES_EXCLUDE_FROM
+        "/usr/lib/pkgconfig/tesseract-crypt.pc")
     if(CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "amd64")
         set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
     elseif(CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "i386")
