@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(tesseract-crypt
     VERSION 1.0.4
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
+    HOMEPAGE_URL "https://github.com/adyoi/tesseract-crypt"
     LANGUAGES C CXX)
 
 # ------------------------------------------------------------------ #
@@ -357,16 +358,41 @@ if(WIN32)
 elseif(APPLE)
     set(CPACK_GENERATOR "TGZ")
 else()
-    set(CPACK_GENERATOR "TGZ;DEB")
+    set(CPACK_GENERATOR "TGZ;DEB;RPM")
     set(CPACK_DEBIAN_PACKAGE_SECTION "utils")
     # Static libsodium needs no runtime package; a shared one does.
     if(TESS_SODIUM_STATIC)
         set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+        set(CPACK_RPM_PACKAGE_REQUIRES "")
     else()
         set(CPACK_DEBIAN_PACKAGE_DEPENDS "libsodium23")
+        set(CPACK_RPM_PACKAGE_REQUIRES "libsodium")
     endif()
     set(CPACK_DEBIAN_FILE_NAME
         "tesseract-crypt_${PROJECT_VERSION}_${CPACK_DEBIAN_PACKAGE_ARCHITECTURE}.deb")
+
+    # RPM metadata.  The file name follows the name-version-release.arch.rpm
+    # convention, with the RPM spelling of the architecture the DEB mapping
+    # above already resolved (amd64 -> x86_64, i386 -> i686, arm64 -> aarch64).
+    # rpmbuild is required; .github/workflows/release.yml installs it.
+    set(CPACK_RPM_PACKAGE_LICENSE "MIT")
+    set(CPACK_RPM_PACKAGE_RELEASE 1)
+    set(CPACK_RPM_PACKAGE_SUMMARY "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}")
+    set(CPACK_RPM_PACKAGE_DESCRIPTION "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}")
+    # Without these RPM advertises the build host's own vendor ("Humanity" on
+    # the CI image) and Group "unknown".
+    set(CPACK_RPM_PACKAGE_VENDOR "Tesseract Crypt maintainers")
+    set(CPACK_RPM_PACKAGE_GROUP "Unspecified")
+    set(CPACK_RPM_PACKAGE_URL "${CMAKE_PROJECT_HOMEPAGE_URL}")
+    if(CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "amd64")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "x86_64")
+    elseif(CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "i386")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "i686")
+    elseif(CPACK_DEBIAN_PACKAGE_ARCHITECTURE STREQUAL "arm64")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE "aarch64")
+    endif()
+    set(CPACK_RPM_FILE_NAME
+        "tesseract-crypt-${PROJECT_VERSION}-${CPACK_RPM_PACKAGE_RELEASE}.${CPACK_RPM_PACKAGE_ARCHITECTURE}.rpm")
 endif()
 
 include(CPack)

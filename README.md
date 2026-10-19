@@ -69,9 +69,12 @@ sudo apt install tesseract-crypt
 | **Scoop** | Windows | `scoop bucket add adyoi https://github.com/adyoi/scoop-bucket` lalu `scoop install tesseract-crypt` |
 | **Winget** | Windows | `winget install adyoi.tesseract-crypt` |
 | **Chocolatey** | Windows | `choco install tesseract-crypt` |
+| **RPM** | Fedora, RHEL, openSUSE | `dnf install ./tesseract-crypt-<versi>-1.<arch>.rpm` (unduh dari halaman rilis) |
+| **Arch** | Arch Linux | `curl -fsSLO https://github.com/adyoi/tesseract-crypt/releases/latest/download/PKGBUILD && makepkg -si` |
 
-> Formula dan manifest di atas dibangkitkan otomatis dari setiap rilis oleh
-> alur kerja [`packages.yml`](.github/workflows/packages.yml) — repositori
+> Formula, manifest, dan PKGBUILD di atas dibangkitkan otomatis dari setiap
+> rilis oleh alur kerja [`packages.yml`](.github/workflows/packages.yml) dan
+> [`release.yml`](.github/workflows/release.yml) — repositori
 > pendamping: [`adyoi/homebrew-tap`](https://github.com/adyoi/homebrew-tap),
 > [`adyoi/scoop-bucket`](https://github.com/adyoi/scoop-bucket).
 
@@ -86,10 +89,13 @@ Paket siap pakai tersedia di
 | Windows (installer) | x64, x86 | `tesseract-crypt-<versi>-windows-<arch>-setup.exe` |
 | macOS | universal2 (Intel + Apple Silicon) | `tesseract-crypt-<versi>-macOS-universal2.tar.gz` |
 | Linux | x86_64, i686, aarch64 | `tesseract-crypt-<versi>-Linux-<arch>.tar.gz`, `tesseract-crypt_<versi>_<deb-arch>.deb` |
+| Linux (RPM) | x86_64, i686, aarch64 | `tesseract-crypt-<versi>-1.<rpm-arch>.rpm` |
+| Arch Linux | x86_64 | `PKGBUILD` (lihat [Paket lain](#paket-lain)) |
 
 > Semua rilis menyertakan berkas `SHA256SUMS` untuk verifikasi integritas.
-> Paket Windows `.zip` sudah memuat runtime `libsodium`; `.tar.gz`/`.deb` Linux
-> menautkan libsodium secara statis, jadi keduanya jalan tanpa dependensi tambahan.
+> Paket Windows `.zip` sudah memuat runtime `libsodium`;
+> `.tar.gz`/`.deb`/`.rpm` Linux menautkan libsodium secara statis, jadi
+> semuanya jalan tanpa dependensi tambahan.
 
 ### Verifikasi rilis
 
@@ -108,8 +114,9 @@ gh attestation verify tesseract-crypt-1.0.4-Windows-x64.zip \
 jq '.packages[].name' tesseract-crypt-v1.0.4.spdx.json
 ```
 
-> Selain berkas di atas, tersedia juga **Homebrew**, **Scoop**, **Winget** dan
-> **Chocolatey** — lihat [Paket lain](#paket-lain).
+> Selain berkas di atas, tersedia juga **Homebrew**, **Scoop**, **Winget**,
+> **Chocolatey**, **RPM** dan **PKGBUILD Arch** — lihat
+> [Paket lain](#paket-lain).
 
 ## Build
 

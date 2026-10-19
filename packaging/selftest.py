@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Self-test for the release packaging pipeline (standard library only).
 
-Renders the Homebrew / Scoop / Chocolatey metadata from a synthetic
-``SHA256SUMS`` file and validates the result: hash wiring, well-formed
-XML/JSON, no leftover ``@@placeholder@@``, and the Chocolatey uninstall script
-matching the Inno Setup ``UninstallDisplayName``.  Finally it checks that the
-project version is consistent across the repository.
+Renders the Homebrew / Scoop / Chocolatey metadata and the Arch PKGBUILD from
+a synthetic ``SHA256SUMS`` file and validates the result: hash wiring,
+well-formed XML/JSON, no leftover ``@@placeholder@@``, and the Chocolatey
+uninstall script matching the Inno Setup ``UninstallDisplayName``.  Finally it
+checks that the project version is consistent across the repository.
 
 Run from the repository root:
 
@@ -68,21 +68,20 @@ def write_sums(dist, names):
     (dist / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run_render(version, dist, out):
-    return subprocess.run(
-        [
-            sys.executable,
-            str(RENDER),
-            "--version",
-            version,
-            "--dist",
-            str(dist),
-            "--out",
-            str(out),
-        ],
-        capture_output=True,
-        text=True,
-    )
+def run_render(version, dist, out, only=()):
+    cmd = [
+        sys.executable,
+        str(RENDER),
+        "--version",
+        version,
+        "--dist",
+        str(dist),
+        "--out",
+        str(out),
+    ]
+    for target in only:
+        cmd += ["--only", target]
+    return subprocess.run(cmd, capture_output=True, text=True)
 
 
 def nuspec_fields(xml_text):
@@ -129,6 +128,7 @@ def test_render(tmp):
         "nuspec": out / "chocolatey" / "tesseract-crypt.nuspec",
         "chocolateyinstall.ps1": out / "chocolatey" / "tools" / "chocolateyinstall.ps1",
         "chocolateyuninstall.ps1": out / "chocolatey" / "tools" / "chocolateyuninstall.ps1",
+        "pkgbuild": out / "arch" / "PKGBUILD",
     }
     if not check(
         all(p.is_file() for p in paths.values()),
@@ -214,6 +214,26 @@ def test_render(tmp):
     check("Get-UninstallRegistryKey" in uninstall, "uninstall.ps1: looks up the registry entry")
     check("Uninstall-ChocolateyPackage" in uninstall, "uninstall.ps1: calls the uninstall helper")
 
+    # PKGBUILD (Arch) --------------------------------------------------
+    pkgbuild = text["pkgbuild"]
+    check("pkgname=tesseract-crypt-bin" in pkgbuild, "PKGBUILD: binary package name")
+    check("pkgver=%s" % TEST_VERSION in pkgbuild, "PKGBUILD: pkgver pinned")
+    check("arch=('x86_64')" in pkgbuild, "PKGBUILD: x86_64 only")
+    check(
+        "provides=('tesseract-crypt')" in pkgbuild
+        and "conflicts=('tesseract-crypt')" in pkgbuild,
+        "PKGBUILD: provides/conflicts the source package name",
+    )
+    linux_tarball = asset("Linux-x86_64.tar.gz")
+    check(
+        BASE_URL + "/" + linux_tarball in pkgbuild and sums[linux_tarball] in pkgbuild,
+        "PKGBUILD: Linux x86_64 url + sha256",
+    )
+    check(
+        "$srcdir/tesseract-crypt-$pkgver-Linux-x86_64/." in pkgbuild,
+        "PKGBUILD: installs the release tree",
+    )
+
     iss = ISS.read_text(encoding="utf-8")
     match = re.search(r'#define\s+AppName\s+"([^"]+)"', iss)
     app_name = match.group(1) if match else None
@@ -243,6 +263,34 @@ def test_missing_asset(tmp):
     check(
         "macOS-universal2" in (proc.stdout + proc.stderr),
         "render.py names the missing asset",
+    )
+
+
+def test_only_target(tmp):
+    """--only renders one target and needs nothing but that target's assets.
+
+    The release workflow relies on this to emit the Arch PKGBUILD from the
+    Linux job, which only has the Linux assets at hand.
+    """
+    names = [asset("Linux-x86_64.tar.gz")]
+    dist, out = tmp / "dist-only", tmp / "out-only"
+    dist.mkdir()
+    write_sums(dist, names)
+
+    proc = run_render(TEST_VERSION, dist, out, only=("pkgbuild",))
+    check(proc.returncode == 0, "render.py --only pkgbuild exits 0 with Linux assets only")
+    if proc.returncode != 0:
+        print(proc.stdout)
+        print(proc.stderr)
+        return
+
+    check(
+        (out / "arch" / "PKGBUILD").is_file(),
+        "render.py --only pkgbuild writes arch/PKGBUILD",
+    )
+    check(
+        not any((out / d).exists() for d in ("homebrew", "scoop", "chocolatey")),
+        "render.py --only pkgbuild writes nothing else",
     )
 
 
@@ -315,6 +363,7 @@ def main():
         tmp = Path(tmpdir)
         test_render(tmp)
         test_missing_asset(tmp)
+        test_only_target(tmp)
     test_templates_are_used()
     test_version_consistency()
     return summary()

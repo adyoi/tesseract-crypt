@@ -60,7 +60,7 @@ tesseract-crypt/
 │   ├── workflows/ci.yml    # build+test (gcc/clang, Debug/Release, ASan/UBSan)
 │   ├── workflows/pages.yml # deploy docs/ → GitHub Pages
 │   └── ISSUE_TEMPLATE/
-├── packaging/              # PKGBUILD (Arch), spec (RPM), .deb recipe
+├── packaging/              # template Homebrew/Scoop/Chocolatey/PKGBUILD + render.py
 ├── scripts/build-linux.sh
 ├── CMakeLists.txt
 ├── README.md · PLANNING.md · CHANGELOG.md · CONTRIBUTING.md · SECURITY.md
@@ -212,7 +212,7 @@ UX: output ke TTY → otomatis armor; stdin/stdout (`-`) didukung; exit code ≠
 | **M1 — Core crypto** | keygen, seal/open buffer & file, sign/verify, armor, tests | ✅ |
 | **M2 — CLI lengkap** | Semua subcommand, man page, UX TTY/armor otomatis | ✅ |
 | **M3 — Docs & Pages** | `docs/` landing + CLI reference + format spec, deploy Pages | ✅ |
-| **M4 — Packaging** | PKGBUILD, RPM spec, `.deb`, biner rilis CI, APT repo di Pages | 🚧 |
+| **M4 — Packaging** | PKGBUILD (Arch), RPM + `.deb` (CPack), biner rilis CI, APT repo di Pages | ✅ |
 | **M5 — Hardening** | Fuzz target (libFuzzer), fuzzing CI, coverage, audit eksternal | 🚧 |
 | **M6 — Ekstra** | `--rekey`, KMS/plugin backend, key rotation tooling | 🚧 |
 
