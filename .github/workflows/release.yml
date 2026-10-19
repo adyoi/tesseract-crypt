@@ -15,9 +15,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The Linux binaries, .deb and .rpm inherit the glibc of the build
+        # image, so a silent image upgrade would raise the minimum glibc of
+        # released artifacts.  ubuntu-latest migrates to Ubuntu 26 starting
+        # 2026-10-19, hence the pinned images: bump them deliberately, after
+        # checking what the new glibc does to Linux support.  (The aarch64
+        # runner is versioned anyway.)
         include:
-          - { arch: x86_64,  runner: ubuntu-latest,    cc: "gcc",      flags: "",     multiarch: "",     apt: "" }
-          - { arch: i686,    runner: ubuntu-latest,    cc: "gcc -m32", flags: "-m32", multiarch: "i386", apt: "gcc-multilib g++-multilib" }
+          - { arch: x86_64,  runner: ubuntu-24.04,     cc: "gcc",      flags: "",     multiarch: "",     apt: "" }
+          - { arch: i686,    runner: ubuntu-24.04,     cc: "gcc -m32", flags: "-m32", multiarch: "i386", apt: "gcc-multilib g++-multilib" }
           - { arch: aarch64, runner: ubuntu-24.04-arm, cc: "gcc",     flags: "",     multiarch: "",     apt: "" }
     steps:
       - uses: actions/checkout@v7
@@ -396,7 +402,9 @@ jobs:
     name: publish
     needs: [linux, macos, windows]
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    # Pinned like the build jobs: the checksums, SBOM and attestations of a
+    # release should not shift under an image migration.
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
       id-token: write
@@ -429,7 +437,13 @@ jobs:
           subject-path: dist/*
 
       - name: Attest SBOM
-        uses: actions/attest-sbom@v4
+        # actions/attest-sbom@v4 is a thin wrapper around actions/attest@v4
+        # (same inputs, straight pass-through) that only logs a deprecation
+        # warning; call the real action.  NODE_OPTIONS is what the wrapper set
+        # for the inner call, so large SBOM attestations keep working.
+        uses: actions/attest@v4
+        env:
+          NODE_OPTIONS: '--max-http-header-size=32768'
         with:
           subject-path: dist/*
           sbom-path: dist/tesseract-crypt-${{ github.ref_name }}.spdx.json

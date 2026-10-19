@@ -16,7 +16,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned image (same reason as release.yml): the APT repository that users
+    # install from should not change shape under an ubuntu-latest migration.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
