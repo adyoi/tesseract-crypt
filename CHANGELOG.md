@@ -24,6 +24,18 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
   dapat dirender dari job Linux (yang hanya memegang aset Linux); keluaran target
   lain tidak berubah.
 
+### Diubah
+
+- **Pipeline rilis dipatok ke image `ubuntu-24.04`**, bukan `ubuntu-latest`
+  (`release.yml` dan `pages.yml`). Biner Linux, `.deb`, dan `.rpm` mewarisi glibc
+  dari image pembangunnya, jadi saat `ubuntu-latest` bermigrasi ke Ubuntu 26
+  (mulai 2026-10-19) syarat glibc artefak rilis bisa naik diam-diam dan
+  mematahkan Debian 12/Ubuntu 22.04. Untuk rilis, image dinaikkan secara sadar,
+  bukan otomatis.
+- Langkah **attest SBOM** memakai `actions/attest` langsung.
+  `actions/attest-sbom` sudah deprecated (ia hanya pembungkus tipis atas aksi
+  yang sama), dan memunculkan peringatan di setiap rilis.
+
 ## [1.0.4] — 2026-10-19
 
 ### Diperbaiki
