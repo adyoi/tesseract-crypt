@@ -32,6 +32,15 @@ jobs:
             sudo apt-get install -y ${{ matrix.apt }}
           fi
 
+      # rpmbuild for the RPM that CPack emits next to the .deb (.rpm), cpio for
+      # the smoke test that unpacks it.
+      - name: Install RPM tooling
+        run: |
+          if ! command -v rpmbuild >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y rpm cpio
+          fi
+
       - name: Build static libsodium
         env:
           TESS_CC: ${{ matrix.cc }}
@@ -77,6 +86,15 @@ jobs:
       - name: Package (CPack)
         run: cmake --build build --target package
 
+      # Arch users get a PKGBUILD rendered against the tarball this job just
+      # built, so the sha256 it carries always matches the published artifact.
+      - name: Render PKGBUILD (Arch)
+        if: matrix.arch == 'x86_64'
+        run: |
+          version="$(sed -n 's/^ *VERSION *\([0-9][0-9.]*\)$/\1/p' CMakeLists.txt | head -1)"
+          python3 packaging/render.py --version "$version" --dist build --out out --only pkgbuild
+          cp out/arch/PKGBUILD build/PKGBUILD
+
       - name: Smoke test packaged archive
         run: |
           mkdir -p smoke
@@ -86,6 +104,10 @@ jobs:
           dpkg-deb -x build/tesseract-crypt_*.deb smoke-deb
           deb_bin=$(find smoke-deb -type f -name tesseract-crypt | head -n1)
           "$deb_bin" version
+          mkdir -p smoke-rpm
+          (cd smoke-rpm && rpm2cpio ../build/tesseract-crypt-*.rpm | cpio -idm --quiet)
+          rpm_bin=$(find smoke-rpm -type f -name tesseract-crypt | head -n1)
+          "$rpm_bin" version
 
       # The packaged binaries must report the tag: TESS_VERSION_STRING is a
       # hand-maintained copy of the project version (see packaging/selftest.py),
@@ -102,13 +124,15 @@ jobs:
               exit 1
             fi
           done
-          deb_bin=$(find smoke-deb -type f -name tesseract-crypt | head -n1)
-          got="$("$deb_bin" version)"
-          echo "$deb_bin -> $got"
-          if [ "$got" != "$expect" ]; then
-            echo "::error::$deb_bin reports '$got', expected '$expect'"
-            exit 1
-          fi
+          for dir in smoke-deb smoke-rpm; do
+            bin="$(find "$dir" -type f -name tesseract-crypt | head -n1)"
+            got="$("$bin" version)"
+            echo "$bin -> $got"
+            if [ "$got" != "$expect" ]; then
+              echo "::error::$bin reports '$got', expected '$expect'"
+              exit 1
+            fi
+          done
 
       - uses: actions/upload-artifact@v7
         with:
@@ -116,6 +140,8 @@ jobs:
           path: |
             build/*.tar.gz
             build/*.deb
+            build/*.rpm
+            build/PKGBUILD
           if-no-files-found: error
 
   macos:

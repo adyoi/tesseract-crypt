@@ -73,7 +73,14 @@ curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
   | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
 echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
   | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
-sudo apt update &amp;&amp; sudo apt install tesseract-crypt</pre>
+sudo apt update &amp;&amp; sudo apt install tesseract-crypt
+
+<span class="c"># RPM — Fedora / RHEL / openSUSE (grab the .rpm from the release page)</span>
+sudo dnf install ./tesseract-crypt-*-1.x86_64.rpm
+
+<span class="c"># Arch Linux — prebuilt PKGBUILD, shipped with every release</span>
+curl -fsSLO https://github.com/adyoi/tesseract-crypt/releases/latest/download/PKGBUILD
+makepkg -si</pre>
   </section>
     <article>
       <h3>Hybrid public-key</h3>

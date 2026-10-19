@@ -68,10 +68,12 @@ sudo apt install tesseract-crypt
 | **Scoop** | Windows | `scoop bucket add adyoi https://github.com/adyoi/scoop-bucket` then `scoop install tesseract-crypt` |
 | **Winget** | Windows | `winget install adyoi.tesseract-crypt` |
 | **Chocolatey** | Windows | `choco install tesseract-crypt` |
+| **RPM** | Fedora, RHEL, openSUSE | `dnf install ./tesseract-crypt-<version>-1.<arch>.rpm` (download from the release page) |
+| **Arch** | Arch Linux | `curl -fsSLO https://github.com/adyoi/tesseract-crypt/releases/latest/download/PKGBUILD && makepkg -si` |
 
-> The formula and manifests above are refreshed automatically from every
-> release by the [`packages.yml`](.github/workflows/packages.yml) workflow —
-> companion repos:
+> The formula, manifests and PKGBUILD above are refreshed automatically from
+> every release by the [`packages.yml`](.github/workflows/packages.yml) and
+> [`release.yml`](.github/workflows/release.yml) workflows — companion repos:
 > [`adyoi/homebrew-tap`](https://github.com/adyoi/homebrew-tap),
 > [`adyoi/scoop-bucket`](https://github.com/adyoi/scoop-bucket).
 
@@ -86,10 +88,13 @@ Ready-to-use packages are available on
 | Windows (installer) | x64, x86 | `tesseract-crypt-<version>-windows-<arch>-setup.exe` |
 | macOS | universal2 (Intel + Apple silicon) | `tesseract-crypt-<version>-macOS-universal2.tar.gz` |
 | Linux | x86_64, i686, aarch64 | `tesseract-crypt-<version>-Linux-<arch>.tar.gz`, `tesseract-crypt_<version>_<deb-arch>.deb` |
+| Linux (RPM) | x86_64, i686, aarch64 | `tesseract-crypt-<version>-1.<rpm-arch>.rpm` |
+| Arch Linux | x86_64 | `PKGBUILD` (see [Other package managers](#other-package-managers)) |
 
 > Every release ships a `SHA256SUMS` file for integrity verification.
-> The Windows `.zip` bundles the `libsodium` runtime; Linux `.tar.gz`/`.deb`
-> link libsodium statically, so both run with no extra dependencies.
+> The Windows `.zip` bundles the `libsodium` runtime; Linux
+> `.tar.gz`/`.deb`/`.rpm` link libsodium statically, so they all run with no
+> extra dependencies.
 
 ### Verifying releases
 
@@ -108,9 +113,9 @@ gh attestation verify tesseract-crypt-1.0.4-Windows-x64.zip \
 jq '.packages[].name' tesseract-crypt-v1.0.4.spdx.json
 ```
 
-> Besides the files above, **Homebrew**, **Scoop**, **Winget** and
-> **Chocolatey** are also supported — see
-> [Other package managers](#other-package-managers).
+> Besides the files above, **Homebrew**, **Scoop**, **Winget**,
+> **Chocolatey**, **RPM** and a prebuilt **Arch PKGBUILD** are also supported —
+> see [Other package managers](#other-package-managers).
 
 ## Build
 

@@ -1,0 +1,30 @@
+# Maintainer: adyoi <adyoi@users.noreply.github.com>
+#
+# Rendered from packaging/arch/PKGBUILD.in by the release workflow: the version,
+# the source url and its checksum are already filled in, so this file can be
+# used as-is (`makepkg -si`) or dropped into the AUR.
+#
+# Binary package: nothing is compiled here.  The release tarball is installed
+# untouched (options=!strip), so the files stay byte-identical to the artifact
+# published (and attested) on the GitHub release page.  libsodium is linked
+# statically, which is why the only runtime dependency is the C/C++ runtime.
+pkgname=tesseract-crypt-bin
+pkgver=@@version@@
+pkgrel=1
+pkgdesc="Hybrid public-key string & file encryption (sign-then-encrypt)"
+arch=('x86_64')
+url="https://github.com/adyoi/tesseract-crypt"
+license=('MIT')
+depends=('glibc' 'gcc-libs')
+provides=('tesseract-crypt')
+conflicts=('tesseract-crypt')
+options=('!strip')
+source=("tesseract-crypt-$pkgver-Linux-x86_64.tar.gz::@@url_linux_x86_64@@")
+sha256sums=('@@sha_linux_x86_64@@')
+
+package() {
+    # bin/, include/, lib/ and share/ (man pages + LICENSE/README) are laid out
+    # for a /usr prefix already.
+    install -d "$pkgdir/usr"
+    cp -a "$srcdir/tesseract-crypt-$pkgver-Linux-x86_64/." "$pkgdir/usr/"
+}

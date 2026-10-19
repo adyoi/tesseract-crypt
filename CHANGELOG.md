@@ -4,6 +4,26 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 [Keep a Changelog](https://keepachangelog.com/id-ID/1.1.0/) dan
 [Semantic Versioning](https://semver.org/lang/id/).
 
+## [Unreleased]
+
+### Ditambahkan
+
+- **Paket RPM** (`tesseract-crypt-<versi>-1.<arch>.rpm`) kini dibangun CPack
+  berdampingan dengan `.deb`/`tar.gz` untuk setiap rilis Linux (x86_64, i686,
+  aarch64). Isinya setara `.deb`: libsodium statis, jadi tidak ada paket runtime
+  yang dibutuhkan (`Requires` kosong; paket `libsodium` hanya diminta bila
+  libsodium ditautkan dinamis). Job Linux mengekstrak RPM dan menjalankan
+  binernya sebagai uji asap, sama seperti `.deb`.
+- **PKGBUILD untuk Arch Linux** dirender dari tarball rilis tepat saat rilis dan
+  ikut diterbitkan sebagai aset `PKGBUILD`, sehingga checksum di dalamnya selalu
+  cocok dengan arsip yang dirilis. Paketnya `tesseract-crypt-bin` (menyediakan
+  `tesseract-crypt`), tidak mengompilasi apa pun dan memasang pohon rilis apa
+  adanya — berkas terpasang identik byte dengan artefak yang di-attest. Pakai
+  langsung dengan `curl -fsSLO …/releases/latest/download/PKGBUILD && makepkg -si`.
+- `packaging/render.py` mengenal opsi `--only <target>` sehingga target PKGBUILD
+  dapat dirender dari job Linux (yang hanya memegang aset Linux); keluaran target
+  lain tidak berubah.
+
 ## [1.0.4] — 2026-10-19
 
 ### Diperbaiki
