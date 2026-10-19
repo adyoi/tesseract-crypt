@@ -58,7 +58,7 @@ sudo apt install tesseract-crypt
 
 > The repository is rebuilt (and re-signed) on every push to `main`.
 > Verify the key: `gpg --show-keys /usr/share/keyrings/tesseract-crypt.gpg`
-> → fingerprint `747E1BDB 928B3101 7718FD38 E1206C36 5D198C58`.
+> → fingerprint `7C20 2758 4065 349E 9B1A 21A4 374E D7B8 C78B 6673`.
 
 ## Other package managers
 
