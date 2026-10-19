@@ -219,6 +219,41 @@ if(TESS_BUILD_CLI)
         if(_sodium_dlls)
             install(FILES ${_sodium_dlls} DESTINATION ${CMAKE_INSTALL_BINDIR})
         endif()
+
+        # MSVC links the CLI against the VC++ runtime DLLs (msvcp140,
+        # vcruntime140, vcruntime140_1).  Windows does not ship them with the
+        # operating system, so on a machine without the VC++ Redistributable the
+        # executables fail to start at all (0xC0000135 STATUS_DLL_NOT_FOUND).
+        # Bundle them app-local like libsodium above; winget validates packages
+        # on exactly such a clean virtual machine.
+        if(MSVC)
+            if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+                set(_crt_arch x86)
+            elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64)")
+                set(_crt_arch arm64)
+            else()
+                set(_crt_arch x64)
+            endif()
+            string(REGEX REPLACE "[/\\\\]Tools[/\\\\]MSVC[/\\\\].*$" ""
+                _msvc_vc_root "${CMAKE_CXX_COMPILER}")
+            file(GLOB _crt_dirs
+                "${_msvc_vc_root}/Redist/MSVC/*/${_crt_arch}/Microsoft.VC*.CRT")
+            if(_crt_dirs)
+                list(SORT _crt_dirs)
+                list(GET _crt_dirs -1 _crt_dir)
+                foreach(_crt_dll msvcp140.dll vcruntime140.dll vcruntime140_1.dll)
+                    if(EXISTS "${_crt_dir}/${_crt_dll}")
+                        install(FILES "${_crt_dir}/${_crt_dll}"
+                            DESTINATION ${CMAKE_INSTALL_BINDIR})
+                    endif()
+                endforeach()
+            else()
+                message(WARNING
+                    "VC++ runtime redistributable not found under "
+                    "'${_msvc_vc_root}/Redist/MSVC'; the Windows packages will "
+                    "depend on a system-wide installation of the runtime.")
+            endif()
+        endif()
     endif()
     if(UNIX)
         # Alias 'tscrypt' -> 'tesseract-crypt' as a symlink (DESTDIR-aware).

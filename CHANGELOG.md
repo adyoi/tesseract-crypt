@@ -8,6 +8,15 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 
 ### Diperbaiki
 
+- **Paket Windows kini mandiri (self-contained)**. Biner MSVC sebelumnya hanya
+  menautkan *runtime* VC++ secara dinamis (`MSVCP140.dll`, `VCRUNTIME140.dll`,
+  `VCRUNTIME140_1.dll`) yang **tidak** ikut dipaketkan, sehingga di Windows yang
+  belum pernah memasang *VC++ 2015–2022 Redistributable* kedua executable gagal
+  start sama sekali (`0xC0000135 STATUS_DLL_NOT_FOUND`). Ketiga DLL itu kini
+  dikirim di samping executable di ZIP dan installer, jadi tidak ada lagi
+  prasyarat tersembunyi. Ini juga penyebab kegagalan validasi paket winget
+  (`Validation-Executable-Error`) pada VM bersih milik Microsoft, yang sekaligus
+  mengonfirmasi bug tersebut.
 - **Repo APT (GitHub Pages)** kini benar-benar terbit. Sebelumnya langkah Pages
   selalu jatuh ke jalur "docs only" karena secret penandatangan belum ada, jadi
   `apt install tesseract-crypt` yang didokumentasikan tidak pernah bisa jalan.

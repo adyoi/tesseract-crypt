@@ -235,6 +235,59 @@ jobs:
           $bin = "${{ github.workspace }}/vcpkg_installed/${{ matrix.vcpkg }}/bin"
           Get-ChildItem $bin -Filter '*sodium*.dll' | Copy-Item -Destination build/Release -Force
 
+      # Windows ships no VC++ runtime, so a machine without the redistributable
+      # cannot start the executables (0xC0000135 STATUS_DLL_NOT_FOUND).  Stage
+      # the runtime DLLs next to the binaries for the Inno Setup payload;
+      # CMakeLists.txt bundles the same files into the CPack ZIP.
+      - name: Stage VC++ runtime DLLs
+        shell: pwsh
+        run: |
+          $arch = switch ("${{ matrix.arch }}") {
+            'x86'   { 'x86' }
+            'arm64' { 'arm64' }
+            default { 'x64' }
+          }
+          # vcruntime140_1.dll only exists for the 64-bit targets, so copy
+          # whatever the redistributable provides and remember it for the
+          # package check below.
+          $wanted = @('msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll')
+          $roots = @()
+          if ($env:VCToolsRedistDir) { $roots += $env:VCToolsRedistDir }
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          if (Test-Path $vswhere) {
+            $vs = & $vswhere -latest -products * -property installationPath
+            if ($vs) { $roots += (Join-Path $vs "VC/Redist/MSVC") }
+          }
+          # VCToolsRedistDir already points at one toolset version directory,
+          # while the vswhere root holds one directory per version; accept both.
+          $versionDirs = foreach ($root in $roots) {
+            if (-not (Test-Path $root)) { continue }
+            if (Test-Path (Join-Path $root $arch)) {
+              $root
+            } else {
+              Get-ChildItem (Join-Path $root '*') -Directory -ErrorAction SilentlyContinue |
+                ForEach-Object { $_.FullName }
+            }
+          }
+          $crt = $versionDirs |
+            ForEach-Object { Get-ChildItem (Join-Path $_ $arch) -Directory -Filter 'Microsoft.VC*.CRT' -ErrorAction SilentlyContinue } |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $crt) { throw "VC++ runtime redistributable for $arch not found" }
+          Write-Host "staging VC++ runtime from $($crt.FullName)"
+          $staged = @()
+          foreach ($dll in $wanted) {
+            $src = Join-Path $crt.FullName $dll
+            if (Test-Path $src) {
+              Copy-Item $src -Destination build/Release -Force
+              $staged += $dll
+            }
+          }
+          foreach ($required in 'msvcp140.dll', 'vcruntime140.dll') {
+            if ($staged -notcontains $required) { throw "$required is missing from $($crt.FullName)" }
+          }
+          "STAGED_RUNTIME_DLLS=$($staged -join ',')" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Get-ChildItem build/Release -Filter '*.dll' | ForEach-Object { Write-Host "staged: $($_.Name)" }
+
       - name: Test
         if: matrix.tests
         run: ctest --test-dir build -C Release --output-on-failure
@@ -242,15 +295,22 @@ jobs:
       - name: Package (CPack)
         run: cmake --build build --config Release --target package
 
-      - name: Verify package bundles libsodium
+      - name: Verify package bundles runtime DLLs
         shell: pwsh
         run: |
           $zip = Get-Item build/tesseract-crypt-*-Windows-*.zip
           Expand-Archive $zip.FullName -DestinationPath smoke -Force
-          if (-not (Get-ChildItem smoke -Recurse -Filter '*sodium*.dll')) {
-            Get-ChildItem smoke -Recurse -File | ForEach-Object { Write-Host "in zip: $($_.FullName)" }
-            throw "libsodium runtime DLL is missing from $($zip.Name)"
+          $required = @('*sodium*.dll')
+          if ($env:STAGED_RUNTIME_DLLS) { $required += $env:STAGED_RUNTIME_DLLS -split ',' }
+          $missing = @()
+          foreach ($pattern in $required) {
+            if (-not (Get-ChildItem smoke -Recurse -Filter $pattern)) { $missing += $pattern }
           }
+          if ($missing) {
+            Get-ChildItem smoke -Recurse -File | ForEach-Object { Write-Host "in zip: $($_.FullName)" }
+            throw "runtime DLL(s) missing from $($zip.Name): $($missing -join ', ')"
+          }
+          Write-Host "bundled runtime DLLs: $($required -join ', ')"
 
       - name: Smoke test packaged archive
         if: matrix.tests
@@ -285,9 +345,9 @@ jobs:
           Copy-Item build/Release/tesseract-crypt.exe stage/
           Copy-Item build/Release/tscrypt.exe stage/
           Copy-Item LICENSE stage/
-          $bin = "${{ github.workspace }}/vcpkg_installed/${{ matrix.vcpkg }}/bin"
-          Get-ChildItem $bin -Filter '*sodium*.dll' -ErrorAction SilentlyContinue |
-            Copy-Item -Destination stage/
+          # Runtime DLLs (libsodium + the VC++ runtime staged above) travel with
+          # the executables so the installer works on a clean Windows.
+          Copy-Item build/Release/*.dll stage/
           $isccArgs = @("/DAppVersion=$ver")
           if ("${{ matrix.arch }}" -eq "x86") { $isccArgs += "/DArchX86" }
           & "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe" @isccArgs packaging/windows/tesseract-crypt.iss
