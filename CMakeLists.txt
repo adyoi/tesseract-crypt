@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(tesseract-crypt
-    VERSION 1.0.3
+    VERSION 1.0.4
     DESCRIPTION "Hybrid public-key string & file encryption (libsodium)"
     LANGUAGES C CXX)
 

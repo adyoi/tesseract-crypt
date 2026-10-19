@@ -10,7 +10,7 @@
 ; Define ArchX86 for the 32-bit build; omit it for x64.
 
 #ifndef AppVersion
-  #define AppVersion "1.0.3"
+  #define AppVersion "1.0.4"
 #endif
 
 #ifdef ArchX86
