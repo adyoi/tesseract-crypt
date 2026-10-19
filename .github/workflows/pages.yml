@@ -22,21 +22,45 @@ jobs:
 
       - uses: actions/configure-pages@v6
 
-      - name: Install build deps, apt tooling, gnupg
+      - name: Install APT tooling and gnupg
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsodium-dev build-essential cmake apt-utils gnupg
+          sudo apt-get install -y apt-utils gnupg
 
-      # The published site is docs/ + an APT repository built from the
-      # CPack .deb.  The repo is signed with APT_SIGNING_KEY (armored secret
-      # key, fingerprint hard-coded below); its public half is committed to
-      # docs/apt/tesseract-crypt.asc.
-      - name: Build & package Debian (.deb)
+      # The published site is docs/ + an APT repository.  The package it serves
+      # is the .deb built by the release workflow instead of one rebuilt here:
+      # every user then installs the same artifact that was built from the tag,
+      # statically linked against libsodium (so no runtime dependency on
+      # libsodium23) and covered by the release attestation, which is verified
+      # before the package is signed into the repository.  The repo itself is
+      # signed with APT_SIGNING_KEY (armored secret key, fingerprint hard-coded
+      # below); its public half is committed to docs/apt/tesseract-crypt.asc.
+      - name: Fetch the attested .deb from the latest release
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DTESS_WARNINGS_AS_ERRORS=ON
-          cmake --build build --config Release --parallel
-          cmake --build build --config Release --target package
+          set -euo pipefail
+          mkdir -p dist
+          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+          deb=""
+          if [ -n "$tag" ]; then
+            deb="tesseract-crypt_${tag#v}_amd64.deb"
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+              --pattern "$deb" -D dist 2>/dev/null || deb=""
+          fi
+          if [ -z "$deb" ]; then
+            echo "::warning::no released .deb found — the APT repository was not published"
+            exit 0
+          fi
+          # Loud on purpose: a package whose provenance cannot be traced to
+          # this repository's release workflow must never be signed into the
+          # APT repository.
+          gh attestation verify "dist/$deb" --repo "$GITHUB_REPOSITORY"
+          {
+            echo "DEB=dist/$deb"
+            echo "RELEASE_TAG=$tag"
+          } >> "$GITHUB_ENV"
 
       - name: Assemble site (docs + APT repo)
         shell: bash
@@ -48,7 +72,7 @@ jobs:
           rm -rf site apt-stage
           mkdir -p site
           cp -r docs/. site/
-          DEB="$(ls build/*.deb 2>/dev/null | head -1 || true)"
+          DEB="${DEB:-}"
           if [ -n "$DEB" ] && [ -n "$APT_SIGNING_KEY" ]; then
             printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --import
             # build into a staging root, then merge so docs/apt/tesseract-crypt.asc
@@ -64,7 +88,7 @@ jobs:
           else
             echo "publishing docs only"
             if [ -z "$DEB" ]; then
-              echo "::warning::no .deb in build/ — the APT repository was not published"
+              echo "::warning::no released .deb — the APT repository was not published"
             else
               echo "::warning::APT_SIGNING_KEY is not set — the APT repository was not published, but the site still documents 'apt install tesseract-crypt'"
             fi
@@ -72,15 +96,13 @@ jobs:
           find site -maxdepth 4 -type f | sort | head -30
 
       # The docs footer carries __VERSION__ so no HTML has to be edited for a
-      # release; stamp it here.  Falls back to the CMake project version when
-      # the release lookup fails (e.g. before the first release).
+      # release; stamp it here.  RELEASE_TAG comes from the .deb fetch above;
+      # fall back to the CMake project version when there is no release yet.
       - name: Stamp release version
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          version="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null || true)"
+          version="${RELEASE_TAG:-}"
           if [ -z "$version" ]; then
             version="v$(sed -n 's/^ *VERSION *\([0-9][0-9.]*\)$/\1/p' CMakeLists.txt | head -1)"
           fi
