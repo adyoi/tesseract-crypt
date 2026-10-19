@@ -100,12 +100,12 @@ you can verify:
 # 1. match the checksums
 sha256sum -c SHA256SUMS
 
-# 2. verify an artifact's provenance (e.g. from tag v1.0.3)
-gh attestation verify tesseract-crypt-1.0.3-Windows-x64.zip \
+# 2. verify an artifact's provenance (e.g. from tag v1.0.4)
+gh attestation verify tesseract-crypt-1.0.4-Windows-x64.zip \
   --repo adyoi/tesseract-crypt
 
 # 3. inspect the SPDX SBOM
-jq '.packages[].name' tesseract-crypt-v1.0.3.spdx.json
+jq '.packages[].name' tesseract-crypt-v1.0.4.spdx.json
 ```
 
 > Besides the files above, **Homebrew**, **Scoop**, **Winget** and
