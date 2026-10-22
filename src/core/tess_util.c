@@ -7,6 +7,10 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 /* POSIX rename() overwrites atomically; Windows' rename() does not. */
@@ -89,7 +93,10 @@ tess_status tess_armor(const uint8_t *in, size_t len, const char *label,
                        char **out) {
     char *buf = NULL;
     size_t b64len, need, pos = 0, linelen;
-    const size_t label_len = label ? strlen(label) : 0;
+    /* the label that is actually printed — the budget below must be sized
+     * for it, otherwise the default label overruns the buffer (CWE-787) */
+    const char *lbl = label ? label : "TESSERACT DATA";
+    const size_t label_len = strlen(lbl);
 
     if (in == NULL || out == NULL || len > (SIZE_MAX / 2)) {
         return TESS_ERR_INVALID_ARG;
@@ -102,8 +109,14 @@ tess_status tess_armor(const uint8_t *in, size_t len, const char *label,
     buf = (char *)malloc(need);
     if (buf == NULL) return TESS_ERR_NOMEM;
 
-    pos += (size_t)snprintf(buf + pos, need - pos, "-----BEGIN %s-----\n",
-                            label_len ? label : "TESSERACT DATA");
+    {
+        int n = snprintf(buf + pos, need - pos, "-----BEGIN %s-----\n", lbl);
+        if (n < 0 || (size_t)n >= need - pos) {
+            free(buf);
+            return TESS_ERR_INTERNAL; /* budget bug: never happens */
+        }
+        pos += (size_t)n;
+    }
 
     {
         char *b64 = (char *)malloc(b64len);
@@ -128,8 +141,14 @@ tess_status tess_armor(const uint8_t *in, size_t len, const char *label,
         free(b64);
     }
 
-    pos += (size_t)snprintf(buf + pos, need - pos, "-----END %s-----\n",
-                            label_len ? label : "TESSERACT DATA");
+    {
+        int n = snprintf(buf + pos, need - pos, "-----END %s-----\n", lbl);
+        if (n < 0 || (size_t)n >= need - pos) {
+            free(buf);
+            return TESS_ERR_INTERNAL; /* budget bug: never happens */
+        }
+        pos += (size_t)n;
+    }
     buf[pos] = '\0';
     *out = buf;
     return TESS_OK;
@@ -235,18 +254,47 @@ tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len) {
     return TESS_OK;
 }
 
-static void make_part_path(const char *path, char *part, size_t cap) {
-    snprintf(part, cap, "%s.part", path);
+static tess_status make_part_path(const char *path, char *part, size_t cap) {
+    int n = snprintf(part, cap, "%s.part", path);
+    if (n < 0 || (size_t)n >= cap) return TESS_ERR_INVALID_ARG;
+    return TESS_OK;
 }
 
-tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
-                                   size_t len) {
+/*
+ * Open a file for writing.
+ *
+ * owner_only = 1 creates the file with 0600 (owner read/write) from the
+ * very first byte, so secret material is never briefly world-readable.
+ * On Windows there are no POSIX mode bits: the file inherits the ACL of
+ * the containing directory, which is the platform's normal protection.
+ */
+static FILE *open_write_file(const char *path, int owner_only) {
+#ifdef _WIN32
+    (void)owner_only;
+    return fopen(path, "wb");
+#else
+    int fd;
+    if (!owner_only) return fopen(path, "wb");
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (fd < 0) return NULL;
+    /* force the mode even when the file already existed */
+    (void)fchmod(fd, S_IRUSR | S_IWUSR);
+    return fdopen(fd, "wb");
+#endif
+}
+
+tess_status tess_write_file_atomic_ex(const char *path, const uint8_t *buf,
+                                       size_t len, int owner_only) {
     char part[4096];
     FILE *f;
     size_t wrote;
+    tess_status st;
 
-    make_part_path(path, part, sizeof part);
-    f = fopen(part, "wb");
+    if (path == NULL || (buf == NULL && len != 0)) return TESS_ERR_INVALID_ARG;
+
+    st = make_part_path(path, part, sizeof part);
+    if (st != TESS_OK) return st;
+    f = open_write_file(part, owner_only);
     if (f == NULL) return TESS_ERR_IO;
     wrote = len ? fwrite(buf, 1, len, f) : 0;
     if (wrote != len || fflush(f) != 0) {
@@ -260,4 +308,9 @@ tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
         return TESS_ERR_IO;
     }
     return TESS_OK;
+}
+
+tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
+                                   size_t len) {
+    return tess_write_file_atomic_ex(path, buf, len, 0);
 }

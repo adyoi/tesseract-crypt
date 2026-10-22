@@ -33,8 +33,19 @@
 /* Argon2id hard limits enforced when *reading* untrusted headers/blobs. */
 #define TESS_ARGON_MAX_OPS 16u
 #define TESS_ARGON_MAX_MEM (4ull * 1024ull * 1024ull * 1024ull)
+/*
+ * A passphrase-encrypted *message* carries its KDF parameters in the
+ * header, i.e. they are chosen by whoever produced the message.  Capping
+ * them lower keeps a hostile message from forcing a multi-gigabyte
+ * allocation on the machine that decrypts it (memory-exhaustion DoS).
+ * 1 GiB is libsodium's "sensitive" tier and stays far above the default.
+ */
+#define TESS_ARGON_MAX_MEM_MSG (1ull * 1024ull * 1024ull * 1024ull)
 #define TESS_ARGON_DEF_OPS crypto_pwhash_OPSLIMIT_MODERATE
 #define TESS_ARGON_DEF_MEM crypto_pwhash_MEMLIMIT_MODERATE
+
+/* Upper bound for an armored file that is decoded in memory. */
+#define TESS_MAX_ARMORED_BYTES (256ull * 1024ull * 1024ull)
 
 /* Wire header layout offsets (little-endian, see docs/format.html). */
 enum {
@@ -166,6 +177,9 @@ void tess_secure_free(void *p, size_t n);
 tess_status tess_read_file(const char *path, uint8_t **buf, size_t *len);
 tess_status tess_write_file_atomic(const char *path, const uint8_t *buf,
                                    size_t len);
+/* owner_only = 1 creates the file with 0600 (POSIX) */
+tess_status tess_write_file_atomic_ex(const char *path, const uint8_t *buf,
+                                       size_t len, int owner_only);
 
 /* replace `to` with `from` (overwrites an existing destination) */
 int tess_replace_file(const char *from, const char *to);

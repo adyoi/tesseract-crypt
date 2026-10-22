@@ -79,8 +79,11 @@ tess_status tess_header_validate(const tess_header *h) {
         if (h->argon_ops == 0 || h->argon_ops > TESS_ARGON_MAX_OPS) {
             return TESS_ERR_FORMAT;
         }
+        /* the header comes from whoever produced the message: cap the KDF
+         * memory so a hostile message cannot force a huge allocation on
+         * the machine that decrypts it */
         if (h->argon_mem < (64ull * 1024ull) ||
-            h->argon_mem > TESS_ARGON_MAX_MEM) {
+            h->argon_mem > TESS_ARGON_MAX_MEM_MSG) {
             return TESS_ERR_FORMAT;
         }
         if (h->argon_mem > SIZE_MAX) return TESS_ERR_FORMAT;

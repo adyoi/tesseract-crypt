@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tesseract Crypt — String &amp; File Encryption with Public/Private Keys</title>
+<meta name="description" content="Tesseract: encrypt/decrypt strings and files with public/private keys — X25519 hybrid, Ed25519 sign-then-encrypt, XChaCha20-Poly1305, Argon2id.">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+<link rel="alternate" hreflang="en" href="index.html">
+<link rel="alternate" hreflang="id" href="id/index.html">
+<link rel="alternate" hreflang="x-default" href="index.html">
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <div class="brand"><img class="logo" src="assets/logo.svg" alt="" width="24" height="24"> Tesseract&nbsp;Crypt</div>
+    <nav>
+      <a href="index.html" class="active">Home</a>
+      <a href="cli.html">CLI Reference</a>
+      <a href="format.html">Format Spec</a>
+      <a href="features.html">Features</a>
+      <a href="performance.html">Performance</a>
+      <a href="tentang.html">About</a>
+      <a href="https://github.com/adyoi/tesseract-crypt" aria-label="GitHub">GitHub</a>
+      <a href="id/index.html" lang="id" hreflang="id">ID</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1>Encrypt <em>strings</em> &amp; <em>files</em><br>with public/private keys.</h1>
+    <p class="lead">
+      Tesseract is a C11 library + C++17 CLI combining
+      <strong>X25519 hybrid encryption</strong>, <strong>Ed25519 sign-then-encrypt</strong>,
+      <strong>XChaCha20-Poly1305</strong> per-chunk, and <strong>Argon2id</strong> —
+      built for Linux, constant memory, and verify-before-write.
+    </p>
+    <p class="cta">
+      <a class="btn primary" href="#install">Install</a>
+      <a class="btn" href="#quickstart">Quick start</a>
+      <a class="btn" href="cli.html">CLI reference</a>
+      <a class="btn" href="format.html">Format spec</a>
+      <a class="btn" href="features.html">Features</a>
+      <a class="btn" href="performance.html">Performance</a>
+    </p>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <p class="lead">
+      Every <a href="https://github.com/adyoi/tesseract-crypt/releases/latest">release</a>
+      ships prebuilt binaries for Linux (x86_64, aarch64, i686), macOS
+      (universal2) and Windows (x64, x86, arm64), together with
+      <code>SHA256SUMS</code> and an SPDX SBOM. Or use a package manager:
+    </p>
+<pre class="code"><span class="c"># Homebrew (macOS / Linux)</span>
+brew tap adyoi/tap &amp;&amp; brew install tesseract-crypt
+
+<span class="c"># Scoop (Windows)</span>
+scoop bucket add adyoi https://github.com/adyoi/scoop-bucket
+scoop install tesseract-crypt
+
+<span class="c"># WinGet (Windows)</span>
+winget install adyoi.tesseract-crypt
+
+<span class="c"># Chocolatey (Windows)</span>
+choco install tesseract-crypt
+
+<span class="c"># APT — Debian / Ubuntu (signed repository, amd64)</span>
+curl -fsSL https://adyoi.github.io/tesseract-crypt/apt/tesseract-crypt.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/tesseract-crypt.gpg
+echo "deb [signed-by=/usr/share/keyrings/tesseract-crypt.gpg] https://adyoi.github.io/tesseract-crypt/apt stable main" \
+  | sudo tee /etc/apt/sources.list.d/tesseract-crypt.list
+sudo apt update &amp;&amp; sudo apt install tesseract-crypt
+
+<span class="c"># RPM — Fedora / RHEL / openSUSE (grab the .rpm from the release page)</span>
+sudo dnf install ./tesseract-crypt-*-1.x86_64.rpm
+
+<span class="c"># Arch Linux — prebuilt PKGBUILD, shipped with every release</span>
+curl -fsSLO https://github.com/adyoi/tesseract-crypt/releases/latest/download/PKGBUILD
+makepkg -si</pre>
+  </section>
+    <article>
+      <h3>Hybrid public-key</h3>
+      <p>Every message uses an <em>ephemeral</em> X25519 key (forward secrecy)
+      combined with a static DH against the recipient's identity → BLAKE2b KDF
+      → XChaCha20-Poly1305.</p>
+    </article>
+    <article>
+      <h3>Sign-then-encrypt</h3>
+      <p>The Ed25519ph (streaming) signature lives in the header, which is
+      authenticated as AAD. Authenticity + non-repudiation, verified before any
+      plaintext is written.</p>
+    </article>
+    <article>
+      <h3>Streaming chunked</h3>
+      <p>Large files are processed 64 KiB per chunk with subkeys derived via
+      <code>crypto_kdf</code>. Reordering, truncation, and splices are detected
+      cryptographically.</p>
+    </article>
+    <article>
+      <h3>Passphrase mode</h3>
+      <p>Symmetric fallback with Argon2id (memory-hard). Parameters are capped
+      while reading untrusted headers to prevent memory DoS.</p>
+    </article>
+    <article>
+      <h3>PEM-like armor</h3>
+      <p>TTY output is automatically wrapped in
+      <code>-----BEGIN TESSERACT MESSAGE-----</code> — safe to copy-paste.</p>
+    </article>
+    <article>
+      <h3>Atomic output</h3>
+      <p>Decryption is written to <code>.part</code> and renamed only after the
+      AEAD and signature succeed. Unauthenticated data never reaches the
+      destination.</p>
+    </article>
+    <article>
+      <h3>Multi-recipient (v2)</h3>
+      <p>One message for a whole team: a random data key wrapped once per
+      recipient under their own X25519 DH secret. Repeat <code>-r</code> on
+      the CLI; non-recipients are rejected explicitly.</p>
+    </article>
+  </section>
+
+  <section id="quickstart">
+    <h2>Quick start</h2>
+<pre class="code"><span class="c"># build</span>
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+
+<span class="c"># keypair (short alias: tscrypt)</span>
+tesseract-crypt keygen -o alice
+tesseract-crypt keygen -o bob
+
+<span class="c"># encrypt file for Bob, signed by Alice</span>
+tesseract-crypt encrypt -r bob.pub -k alice.key -i secret.txt -o secret.enc
+
+<span class="c"># decrypt + require the sender</span>
+tesseract-crypt decrypt -k bob.key -i secret.enc -o secret.out --require-signer alice.pub
+
+<span class="c"># encrypt a string (straight to stdout, auto-armored)</span>
+tesseract-crypt encrypt --text "Hello world" -r bob.pub
+</pre>
+  </section>
+
+  <section>
+    <h2>Library example (C)</h2>
+<pre class="code"><span class="k">#include</span> &lt;tesseract/tesseract.h&gt;
+
+tess_key *sec, *pub;
+tess_keygen(&amp;sec, &amp;pub);
+
+tess_seal_options so;
+tess_seal_options_init(&amp;so);
+so.recipient_public = pub;
+so.sender_secret    = sec;
+so.sign             = 1;
+
+uint8_t *ct;  size_t ct_len;
+tess_seal((<span class="k">const</span> uint8_t *)<span class="s">"secret"</span>, 6, &amp;so, &amp;ct, &amp;ct_len);
+</pre>
+  </section>
+
+  <section>
+    <h2>Status</h2>
+    <table>
+      <tr><th>Component</th><th>Status</th></tr>
+      <tr><td>Format v1 (264-byte header)</td><td>stable</td></tr>
+      <tr><td>Public-key + passphrase modes</td><td>active</td></tr>
+      <tr><td>Streaming files + atomic output</td><td>active</td></tr>
+      <tr><td>Detached signature (Ed25519ph)</td><td>active</td></tr>
+      <tr><td>CI (Linux GCC/Clang + Windows/macOS + sanitizers)</td><td>active</td></tr>
+    </table>
+  </section>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand"><img class="logo" src="assets/logo.svg" alt="" width="24" height="24"> Tesseract&nbsp;Crypt</div>
+      <nav class="foot-links">
+        <a href="https://github.com/adyoi/tesseract-crypt">GitHub</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/CONTRIBUTING.md">Contributing</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/security/policy">Security</a>
+        <a href="https://github.com/adyoi/tesseract-crypt/blob/main/LICENSE">License</a>
+      </nav>
+      <span class="foot-meta mono">__VERSION__ · © 2026</span>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

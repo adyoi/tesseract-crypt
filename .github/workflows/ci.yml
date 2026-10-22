@@ -5,6 +5,11 @@ on:
     branches: [ main ]
   pull_request:
 
+# CI only reads the repository: pin the token to the least privilege it needs
+# so a change to a workflow/step cannot silently gain write access.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: ${{ matrix.name }}

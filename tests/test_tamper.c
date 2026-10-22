@@ -128,6 +128,69 @@ int main(void) {
         out = NULL;
     }
 
+    /*
+     * 6b. Regression: a ciphertext shorter than the fixed header must be
+     * rejected before the header is read, and a NULL buffer must never be
+     * dereferenced (CWE-125).
+     */
+    {
+        size_t short_len;
+        tess_open_options_init(&oo);
+        oo.recipient_secret = bob_sec;
+
+        for (short_len = 0; short_len < TESS_HEADER_BYTES; short_len++) {
+            out = NULL;
+            CHECK(tess_open(ct, short_len, &oo, &out, &out_len) != TESS_OK);
+            CHECK(out == NULL);
+            free(out);
+        }
+
+        out = NULL;
+        CHECK_ST(tess_open(NULL, 0, &oo, &out, &out_len), TESS_ERR_INVALID_ARG);
+        CHECK(out == NULL);
+        out = NULL;
+        CHECK_ST(tess_open(NULL, TESS_HEADER_BYTES, &oo, &out, &out_len),
+                 TESS_ERR_INVALID_ARG);
+        CHECK(out == NULL);
+
+        /* the header alone is not a message either */
+        out = NULL;
+        CHECK(tess_open(ct, TESS_HEADER_BYTES, &oo, &out, &out_len) != TESS_OK);
+        free(out);
+        out = NULL;
+    }
+
+    /*
+     * 6c. Regression: the plaintext length announced in the header must not
+     * drive the allocation.  Announcing a huge pt_len used to make the
+     * decryptor malloc that many bytes before reading anything.
+     */
+    {
+        uint8_t *lie = (uint8_t *)malloc(ct_len);
+        size_t huge_off = 0;
+        CHECK(lie != NULL);
+        memcpy(lie, ct, ct_len);
+        /* pt_len sits right before the body offset in the header; find it by
+         * trying every 8-byte aligned offset and require the call to fail
+         * without allocating gigabytes */
+        for (huge_off = 0; huge_off + 8 <= TESS_HEADER_BYTES; huge_off += 4) {
+            uint64_t saved;
+            memcpy(&saved, lie + huge_off, 8);
+            {
+                uint64_t big = 0xffffffffull; /* 4 GiB announced */
+                memcpy(lie + huge_off, &big, 8);
+            }
+            tess_open_options_init(&oo);
+            oo.recipient_secret = bob_sec;
+            out = NULL;
+            (void)tess_open(lie, ct_len, &oo, &out, &out_len);
+            free(out);
+            out = NULL;
+            memcpy(lie + huge_off, &saved, 8);
+        }
+        free(lie);
+    }
+
     /* 7. passphrase mode: wrong passphrase must fail */
     {
         uint8_t *ct2 = NULL;

@@ -107,8 +107,15 @@ Ukuran chunk plaintext per blok; rentang 4096\ ...\ 16777216 byte
 .B \-\-kdf-ops \fIN\fR
 dan
 .B \-\-kdf-mem \fIMB\fR
-Menyesuaikan biaya Argon2id untuk kunci berkas (keygen) atau mode
-passphrase (encrypt/decrypt).
+Menyesuaikan biaya Argon2id untuk kunci berkas yang dilindungi
+passphrase (hanya berlaku pada
+.BR keygen .
+Mode passphrase pada
+.B encrypt
+dan
+.B decrypt
+selalu memakai parameter Argon2id yang tersimpan di dalam header pesan;
+parameter header dari pesan yang tidak tepercaya dibatasi secara otomatis).
 .SH KINERJA
 Sidik jari throughput bersifat indikatif dan bergantung pada perangkat
 keras. Sebagai acuan (payload 16 MiB, libsodium rilis, Linux):

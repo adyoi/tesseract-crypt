@@ -19,11 +19,12 @@
 
 | Versi | Status dukungan |
 |-------|-----------------|
-| `v0.1.x` | Aktif (pengembangan) — tampatkan di lingkungan yang tidak tepercaya |
+| `v1.0.x` | Aktif — rilis terbaru, disarankan |
+| `v0.1.x` | Tidak didukung — arsip pra-1.0 |
 
-Catatan: format `v1` belum pernah dirilis publik; jika ditemukan masalah
-format sebelum rilis 1.0, kami dapat mengganti format tanpa kompatibilitas
-mundur.
+Format pesan `v1` sudah dirilis stabil sejak 1.0.0 dan tidak akan berubah
+tanpa kenaikan versi format. Perbaikan keamanan dirilis untuk baris `v1.0.x`
+yang masih didukung; versi pra-1.0 tidak menerima backport.
 
 ## Melaporkan kerentanan
 

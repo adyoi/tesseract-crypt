@@ -186,7 +186,7 @@ tess_seal((const uint8_t *)"rahasia", 7, &so, &ct, &ct_len);
 ```
 
 Wrapper C++17 header-only tersedia di `<tesseract/tesseract.hpp>` (`tess::key`,
-`tess::seal`, `ess::open`).
+`tess::seal`, `tess::open`).
 
 ## Dokumentasi
 

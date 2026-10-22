@@ -241,6 +241,9 @@ struct parser {
         char *end = nullptr;
         unsigned long long n = std::strtoull(s.c_str(), &end, 10);
         if (end == nullptr || *end != '\0' || n == 0) return false;
+        /* the value is converted to bytes by the caller: refuse anything
+         * that would overflow the multiplication */
+        if (n > (0xffffffffull / (1024ull * 1024ull))) return false;
         out_mb = n;
         return true;
     }
@@ -498,8 +501,12 @@ int cmd_encrypt(const parser &p) {
         /* keep alive for the duration of the call */
         so.sign = 0;
         uint32_t cs = 0;
-        p.get_u32("--chunk-size", cs);
-        so.chunk_size = cs;
+        if (p.get_u32("--chunk-size", cs)) {
+            so.chunk_size = cs;
+        } else if (p.has("--chunk-size")) {
+            std::cerr << "tesseract-crypt encrypt: invalid --chunk-size\n";
+            return EXIT_USAGE;
+        }
 
         std::string text = p.get("--text");
         bool have_text = p.has("--text");
@@ -677,16 +684,6 @@ int cmd_decrypt(const parser &p) {
             fail(st, "loading " + key_path);
             return exit_for(st);
         }
-        if (tess_key_is_locked(sec)) {
-            std::string entered =
-                getpass(("Passphrase for " + key_path + ": ").c_str());
-            st = tess_key_unlock(sec, entered.c_str());
-            if (st != TESS_OK) {
-                fail(st, "unlocking " + key_path);
-                tess_key_free(sec);
-                return exit_for(st);
-            }
-        }
         oo.recipient_secret = sec;
     } else {
         pass = getpass("Passphrase: ");
@@ -713,7 +710,7 @@ int cmd_decrypt(const parser &p) {
         int signed_flag = 0;
         oo.out_signed = &signed_flag;
 
-        if (in_path != "-") {
+        if (in_path != "-" && out_path != "-") {
             /* file -> file: streaming, atomic, verify-then-rename */
             tess_open_file_options fo;
             tess_open_file_options_init(&fo);
@@ -729,6 +726,8 @@ int cmd_decrypt(const parser &p) {
                 goto cleanup;
             }
         } else {
+            /* stdin -> stdout, or file -> stdout: the plaintext goes to
+             * stdout when no output file was requested */
             std::string data;
             if (!read_input(in_path, data)) {
                 rc = EXIT_FAIL;
@@ -797,16 +796,6 @@ int cmd_sign(const parser &p) {
     if (st != TESS_OK) {
         fail(st, "loading " + key_path);
         return exit_for(st);
-    }
-    if (tess_key_is_locked(sec)) {
-        std::string entered =
-            getpass(("Passphrase for " + key_path + ": ").c_str());
-        st = tess_key_unlock(sec, entered.c_str());
-        if (st != TESS_OK) {
-            fail(st, "unlocking " + key_path);
-            tess_key_free(sec);
-            return exit_for(st);
-        }
     }
 
     uint8_t sig[TESS_SIGNATURE_BYTES];

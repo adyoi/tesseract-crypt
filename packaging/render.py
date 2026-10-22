@@ -16,10 +16,32 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_DEFAULT = "adyoi/tesseract-crypt"
+
+# The version is substituted verbatim into shell (PKGBUILD ``pkgver=``),
+# PowerShell (Chocolatey ``$version =``) and XML (AppVeyor/Homebrew) templates,
+# so anything outside a version grammar is an injection into the generated
+# files.  Arch additionally forbids ``-`` in pkgver.  Accept an optional leading
+# ``v`` plus dotted numeric components and an optional pre-release suffix.
+VERSION_RE = re.compile(r"^v?\d+(?:\.\d+)*[A-Za-z0-9.]*$")
+
+
+def normalize_version(raw):
+    """Validate and normalize ``--version``; exit(2) on anything unusable."""
+    version = raw.strip()
+    if version.startswith("v"):
+        version = version[1:]
+    if not version or not VERSION_RE.match(raw.strip()):
+        sys.stderr.write(
+            "render.py: refusing unsafe --version %r: expected something like "
+            "'1.2.3' or 'v1.2.3' (letters, digits and dots only)\n" % raw
+        )
+        sys.exit(2)
+    return version
 
 
 class Assets(object):
@@ -217,7 +239,7 @@ def main():
     )
     args = parser.parse_args()
 
-    version = args.version.lstrip("v")
+    version = normalize_version(args.version)
     base = "https://github.com/%s/releases/download/v%s" % (args.repo, version)
     asset = Assets(args.dist, base)
 

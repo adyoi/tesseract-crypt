@@ -371,8 +371,9 @@ tess_status tess_key_save(const tess_key *key, const char *path) {
     if (key == NULL || path == NULL) return TESS_ERR_INVALID_ARG;
     st = tess_key_serialize(key, &armored);
     if (st != TESS_OK) return st;
-    st = tess_write_file_atomic(path, (const uint8_t *)armored,
-                                strlen(armored));
+    /* a private key file must not be readable by other users */
+    st = tess_write_file_atomic_ex(path, (const uint8_t *)armored,
+                                   strlen(armored), key->is_secret ? 1 : 0);
     free(armored);
     return st;
 }
