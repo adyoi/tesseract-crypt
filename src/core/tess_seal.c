@@ -1034,6 +1034,13 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
     if (in_path == NULL || out_path == NULL || opt == NULL) {
         return TESS_ERR_INVALID_ARG;
     }
+
+    /* A PE container announces itself with the "PE" marker: unpacking it
+     * needs no extra flag from the caller. */
+    if (tess_is_pe_file(in_path)) {
+        return tess_open_file_pe(in_path, out_path, opt);
+    }
+
     memset(&st_ctx, 0, sizeof st_ctx);
 
     in = fopen(in_path, "rb");

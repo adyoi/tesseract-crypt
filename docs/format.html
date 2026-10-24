@@ -202,6 +202,25 @@ v2: header(264) || block_1(80) … block_N(80) || (u32le len(ct_i) || ct_i)*</pr
     private keys are <code>sodium_mlock</code>'d. The tool never uses its own
     RNG — only libsodium's <code>randombytes_buf</code>.</p>
   </section>
+  <section id="pe">
+    <h2>PE container (large files)</h2>
+    <p>Files beyond the practical single-message limit are split into sealed
+    frames. The container starts with the ASCII marker <code>PE</code>, so
+    <code>decrypt</code> recognises it without an extra flag.</p>
+    <table>
+      <tr><th>Offset</th><th>Size</th><th>Field</th><th>Notes</th></tr>
+      <tr><td class="num">0</td><td class="num">3</td><td class="mono">magic</td><td><code>"tsc"</code></td></tr>
+      <tr><td class="num">2</td><td class="num">1</td><td class="mono">version</td><td><code>1</code></td></tr>
+      <tr><td class="num">3</td><td class="num">1</td><td class="mono">flags</td><td>bit 0 = frames are armored</td></tr>
+      <tr><td class="num">4</td><td class="num">8</td><td class="mono">plaintext size</td><td>original size, little-endian</td></tr>
+      <tr><td class="num">12</td><td class="num">8</td><td class="mono">chunk size</td><td>plaintext bytes per frame</td></tr>
+      <tr><td class="num">20</td><td class="num">...</td><td class="mono">frames</td><td>repeated: <code>u32 length</code> + that many bytes of ciphertext</td></tr>
+    </table>
+    <p>Defaults: 256 MiB per frame, clamped to 1..1024 MiB. Created with
+    <code>--pe</code> / <code>--pe-chunk-size MB</code> (CLI) or the
+    <em>Use PE-split for large files</em> checkbox (GUI); batch mode defaults
+    files over 512 MiB to a container.</p>
+  </section>
 </main>
 
 <footer class="site">

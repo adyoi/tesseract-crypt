@@ -226,6 +226,56 @@ tess_status tess_open_file(const char *in_path, const char *out_path,
                            const tess_open_file_options *opt);
 
 /* ------------------------------------------------------------------ */
+/* PE containers — files larger than the practical single-message limit */
+/* ------------------------------------------------------------------ */
+/*
+ * A PE container is a file cut into chunks, every chunk sealed on its own.
+ * It starts with the ASCII marker "tsc", so the decrypt side recognises it
+ * without an extra flag.  Layout (little endian):
+ *
+ *    0   3  magic "TSC"
+ *    3   1  version (1)
+ *    4   1  flags (bit 0: the frames are armored)
+ *    5   8  size of the original plaintext
+ *   13   8  chunk size (plaintext bytes per frame)
+ *   21  ..  repeated: 4 byte length, then that many bytes of ciphertext
+ *
+ * tess_open_file() detects a container by its marker and unpacks it, so
+ * existing callers need no change.
+ */
+
+#define TESS_PE_DEFAULT_CHUNK (256ull * 1024ull * 1024ull)
+#define TESS_PE_MIN_CHUNK (1ull * 1024ull * 1024ull)
+#define TESS_PE_MAX_CHUNK (1024ull * 1024ull * 1024ull)
+
+typedef struct tess_pe_options {
+    uint64_t chunk_bytes; /* plaintext per frame; 0 => TESS_PE_DEFAULT_CHUNK */
+    int armor;            /* armor every frame (text inside the container)   */
+} tess_pe_options;
+
+/** Fill options with defaults (chunk_bytes = 0, armor = 0). */
+void tess_pe_options_init(tess_pe_options *o);
+
+/** 1 when the file starts with the "PE" marker. */
+int tess_is_pe_file(const char *path);
+
+/**
+ * Encrypt `in_path` as a PE container.  `opt` is the usual seal options;
+ * `pe` selects the chunk size and whether the frames are armored.  Output
+ * is written atomically via `out_path + ".part"`.
+ */
+tess_status tess_seal_file_pe(const char *in_path, const char *out_path,
+                              tess_seal_file_options *opt,
+                              const tess_pe_options *pe);
+
+/**
+ * Unpack a PE container into `out_path`.  The announced plaintext size is
+ * checked before the output is renamed into place.
+ */
+tess_status tess_open_file_pe(const char *in_path, const char *out_path,
+                              const tess_open_file_options *opt);
+
+/* ------------------------------------------------------------------ */
 /* Detached signatures (Ed25519ph, streaming)                          */
 /* ------------------------------------------------------------------ */
 

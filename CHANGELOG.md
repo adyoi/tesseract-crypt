@@ -8,6 +8,14 @@ Semua perubahan penting pada Tesseract Crypt dicatat di sini, mengikuti
 
 ### Ditambahkan
 
+- **Kontainer PE (PE-split)** untuk berkas besar: berkas yang melebihi batas
+  praktis penyegelan dipotong menjadi frame-frame yang masing-masing disegel
+  sendiri, dengan penanda `PE` di awal berkas sehingga `decrypt` mendeteksinya
+  otomatis. Tersedia opsi `--pe`, `--pe-chunk-size MB` pada CLI dan kotak
+  centang *Use PE-split for large files* pada GUI.
+- **Penyegelan/penyandian direktori dan subdirektori** (batch): `--dir DIR`,
+  `--out-dir DIR`, `--recursive` pada CLI; menu *Tools → Batch encrypt/decrypt
+  from directory...* dan kotak centang *Include subdirectories (batch)* pada GUI.
 - **Paket RPM** (`tesseract-crypt-<versi>-1.<arch>.rpm`) kini dibangun CPack
   berdampingan dengan `.deb`/`tar.gz` untuk setiap rilis Linux (x86_64, i686,
   aarch64). Isinya setara `.deb`: libsodium statis, jadi tidak ada paket runtime

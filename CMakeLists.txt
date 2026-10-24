@@ -54,7 +54,7 @@ endif()
 # ------------------------------------------------------------------ #
 # warnings / sanitizers                                               #
 # ------------------------------------------------------------------ #
-# add_compile_options(...) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â silence MSVC CRT deprecation (fopen etc.)
+# add_compile_options(...) -- silence MSVC CRT deprecation (fopen etc.)
 if(MSVC)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
@@ -80,7 +80,7 @@ endif()
 # (see the "fuzzing" section below and fuzz/*.c).
 if(TESS_FUZZ)
     if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang")
-        message(FATAL_ERROR "TESS_FUZZ requires Clang ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â configure with CC=clang")
+        message(FATAL_ERROR "TESS_FUZZ requires Clang -- configure with CC=clang")
     endif()
     if(TESS_SANITIZE)
         message(FATAL_ERROR "TESS_FUZZ already enables ASan+UBSan; drop TESS_SANITIZE")
@@ -100,6 +100,7 @@ add_library(tesseract_crypt
     src/core/tess_keys.c
     src/core/tess_sign.c
     src/core/tess_seal.c
+    src/core/tess_pe.c
 )
 add_library(tesseract::crypt ALIAS tesseract_crypt)
 
@@ -153,7 +154,7 @@ endif()
 if(TESS_BUILD_TESTS)
     enable_testing()
 
-    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi limits)
+    set(TESS_TESTS roundtrip tamper armor keys file sign vectors multi limits pe)
     foreach(t ${TESS_TESTS})
         add_executable(test_${t} tests/test_${t}.c)
         target_link_libraries(test_${t} PRIVATE tesseract::crypt)
@@ -167,7 +168,7 @@ if(TESS_BUILD_TESTS)
 endif()
 
 # ------------------------------------------------------------------ #
-# fuzzing (libFuzzer ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Clang only, enabled with -DTESS_FUZZ=ON)       #
+# fuzzing (libFuzzer - Clang only, enabled with -DTESS_FUZZ=ON)       #
 # ------------------------------------------------------------------ #
 if(TESS_FUZZ)
     foreach(f inspect dearmor key_parse)

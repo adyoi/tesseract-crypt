@@ -116,6 +116,30 @@ dan
 .B decrypt
 selalu memakai parameter Argon2id yang tersimpan di dalam header pesan;
 parameter header dari pesan yang tidak tepercaya dibatasi secara otomatis).
+.SH BERKAS BESAR DAN BATCH
+.TP
+.B \-\-pe
+Menyegel berkas sebagai kontainer PE: plaintext dipotong menjadi frame-frame
+yang masing-masing disegel sendiri, dengan penanda
+.B PE
+di awal berkas sehingga
+.B decrypt
+mendeteksinya otomatis.
+.TP
+.B \-\-pe-chunk-size \fIMB\fR
+Ukuran frame PE dalam MiB (rentang 1..1024, default 256).
+.TP
+.B \-\-dir \fIDIR\fR
+Memproses semua berkas dalam direktori (batch).
+.TP
+.B \-\-out-dir \fIDIR\fR
+Direktori output untuk batch (jatuh balik ke
+.BR \-o ).
+.TP
+.B \-\-recursive
+Sertakan subdirektori (struktur pohon dipertahankan).
+.PP
+Berkas di atas 512 MiB otomatis memakai kontainer PE dalam mode batch.
 .SH KINERJA
 Sidik jari throughput bersifat indikatif dan bergantung pada perangkat
 keras. Sebagai acuan (payload 16 MiB, libsodium rilis, Linux):

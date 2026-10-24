@@ -27,6 +27,8 @@ passphrase.
 | **Sign-then-encrypt** | Tanda tangan Ed25519ph (streaming) menempel di header yang ikut di-authenticate |
 | **Mode passphrase** | Argon2id (memory-hard) sebagai fallback simetris |
 | **Streaming chunked** | 64 KiB per chunk, subkey per-chunk (`crypto_kdf`), memori konstan, deteksi reorder/truncation |
+| **PE container (large files)** | Berkas besar dipotong menjadi frame-frame yang masing-masing disegel; penanda `PE` di awal berkas sehingga `decrypt` mendeteksinya otomatis (`--pe`, `--pe-chunk-size`). |
+| **Batch (direktori)** | Proses seluruh direktori/subdirektori dengan `--dir`/`--out-dir`/`--recursive`. |
 | **PEM-like armor** | Base64 `-----BEGIN TESSERACT MESSAGE-----` untuk stdout & teks |
 | **Multi-penerima (v2)** | Satu pesan untuk banyak penerima: data key acak dibungkus per penerima (format v2) |
 | **Atomic output** | File ditulis ke `.part`, di-rename hanya setelah dekripsi & verifikasi sukses |

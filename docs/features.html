@@ -281,6 +281,18 @@ signed         : yes</pre>
       Arch PKGBUILD, plus GitHub Release artifacts.</li>
     </ul>
   </section>
+  <section id="largefiles">
+    <h2>Large files &amp; batch processing</h2>
+    <p>Files larger than 512 MiB default to a <strong>PE container</strong>:
+    the plaintext is sealed in chunks and the result starts with the marker
+    <code>PE</code>, so <code>decrypt</code> detects it automatically.
+    Force it with <code>--pe</code> / <code>--pe-chunk-size MB</code>.</p>
+    <p>Whole directories (and, with <code>--recursive</code>, their
+    subtrees) are processed with <code>--dir DIR --out-dir DIR</code>. The
+    GUI offers the same via <em>Tools → Batch encrypt/decrypt from
+    directory…</em> plus the <em>Include subdirectories (batch)</em>
+    checkbox.</p>
+  </section>
 </main>
 
 <footer class="site">
